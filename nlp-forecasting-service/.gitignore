@@ -1,0 +1,47 @@
+# Virtual environment
+venv/
+venv_old/
+venv_py314/
+.venv/
+env/
+
+# Python bytecode / cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment / secrets
+.env
+.env.local
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model artifacts (avoid committing large trained models by default)
+*.pkl
+*.joblib
+
+# Whitelist ONLY required production model artifacts (small, needed for runtime)
+!models/department_classifier.joblib
+!models/pharmacy_forecasting/hurdle_forecaster_h7.joblib
+!models/pharmacy_forecasting/hurdle_forecaster_h14.joblib
+!models/pharmacy_forecasting/hurdle_forecaster_h30.joblib
+
+# Scratch / local dev scripts (not for commit)
+scratch/

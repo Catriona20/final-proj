@@ -1,0 +1,41 @@
+{
+  "name": "fyp-healthcare-backend",
+  "version": "1.0.0",
+  "description": "Patient App Healthcare Marketplace Backend API",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsc && node dist/server.js",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "seed": "ts-node src/database/seed.ts",
+    "demo:reset": "ts-node scripts/demoReset.ts",
+    "demo:status": "ts-node scripts/demoStatus.ts",
+    "test:integration": "ts-node src/tests/integrationTest.ts",
+    "test:integrity": "ts-node src/tests/dataIntegrityTest.ts",
+    "test:scheduling": "ts-node src/tests/multiClinicSchedulingTest.ts",
+    "test:doctor-clinic-selection": "ts-node src/tests/verifyDoctorClinicSelection.ts"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.13.1",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "socket.io-client": "^4.8.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  }
+}

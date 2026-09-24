@@ -1,0 +1,77 @@
+{
+    "model_name": "department_classifier",
+    "model_version": "2.0.0",
+    "version_tag": "nlp-dept-clf-v2.0.0",
+    "architecture": "Word TF-IDF (1,2) + Character TF-IDF (3,5) + Logistic Regression + class_weight='balanced'",
+    "training_dataset": "data/processed/department_train_candidate.csv",
+    "training_sample_count": 4785,
+    "number_of_departments": 17,
+    "departments": [
+        "Cardiology",
+        "Dentistry",
+        "Dermatology",
+        "ENT",
+        "Endocrinology",
+        "Gastroenterology",
+        "General Medicine",
+        "Gynecology",
+        "Hematology",
+        "Hepatology",
+        "Neurology",
+        "Ophthalmology",
+        "Orthopedics",
+        "Pediatrics",
+        "Psychiatry",
+        "Pulmonology",
+        "Urology"
+    ],
+    "features": {
+        "word_features": {
+            "analyzer": "word",
+            "ngram_range": [
+                1,
+                2
+            ],
+            "sublinear_tf": true,
+            "stop_words": "english",
+            "vocabulary_size": 11088
+        },
+        "character_features": {
+            "analyzer": "char",
+            "ngram_range": [
+                3,
+                5
+            ],
+            "sublinear_tf": true,
+            "min_df": 2,
+            "vocabulary_size": 32732
+        },
+        "total_features": 43820
+    },
+    "hyperparameters": {
+        "C": 1.0,
+        "class_weight": "balanced",
+        "solver": "liblinear",
+        "random_state": 42,
+        "max_iter": 1000
+    },
+    "training_timestamp_utc": "2026-08-23T10:08:53.762208+00:00",
+    "established_evaluation_metrics": {
+        "held_out_test_set": "data/processed/department_test_candidate.csv",
+        "test_samples": 2019,
+        "accuracy": 0.9559,
+        "macro_precision": 0.933,
+        "macro_recall": 0.9218,
+        "macro_f1": 0.9251,
+        "weighted_f1": 0.9554,
+        "total_errors": 89
+    },
+    "established_cross_validation_metrics_5fold": {
+        "cv_strategy": "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+        "accuracy": "95.36% \u00b1 0.48%",
+        "macro_precision": "90.72% \u00b1 2.20%",
+        "macro_recall": "86.44% \u00b1 0.84%",
+        "macro_f1": "87.45% \u00b1 0.87%",
+        "weighted_f1": "95.02% \u00b1 0.47%"
+    }
+}

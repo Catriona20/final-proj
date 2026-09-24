@@ -1,0 +1,25 @@
+model,medicine_id,medicine_name,category,horizon_days,mae,rmse,wape,wape_pct,occ_f1,num_forecast_windows,total_evaluated_points
+Two-Stage Hurdle XGBoost,MED-ATC-M01AB,Diclofenac,Anti-inflammatory,7,2.2436,2.8371,0.4278,42.78%,0.9896,104,728
+Two-Stage Hurdle XGBoost,MED-ATC-M01AE,Ibuprofen,Anti-inflammatory,7,1.8213,2.2663,0.4463,44.63%,0.9896,104,728
+Two-Stage Hurdle XGBoost,MED-ATC-N02BA,Aspirin,Analgesic,7,1.8723,2.3419,0.4873,48.73%,0.9797,104,728
+Two-Stage Hurdle XGBoost,MED-ATC-N02BE,Paracetamol,Analgesic,7,9.867,13.9998,0.3183,31.83%,0.991,104,728
+Two-Stage Hurdle XGBoost,MED-ATC-N05B,Diazepam,Anxiolytic,7,3.8568,5.1675,0.4878,48.78%,0.9875,104,728
+Two-Stage Hurdle XGBoost,MED-ATC-N05C,Hypnotic/Sedative,Sedative,7,0.5342,1.117,1.0853,108.53%,0.1855,104,728
+Two-Stage Hurdle XGBoost,MED-ATC-R03,Salbutamol,Respiratory,7,4.6382,6.2487,0.7977,79.77%,0.8824,104,728
+Two-Stage Hurdle XGBoost,MED-ATC-R06,Cetirizine,Antihistamine,7,1.6571,2.0878,0.5652,56.52%,0.9411,104,728
+Two-Stage Hurdle XGBoost,MED-ATC-M01AB,Diclofenac,Anti-inflammatory,14,2.1966,2.7705,0.4206,42.06%,0.9927,104,1456
+Two-Stage Hurdle XGBoost,MED-ATC-M01AE,Ibuprofen,Anti-inflammatory,14,1.7267,2.1553,0.4305,43.05%,0.9924,104,1456
+Two-Stage Hurdle XGBoost,MED-ATC-N02BA,Aspirin,Analgesic,14,1.8639,2.3137,0.4792,47.92%,0.9815,104,1456
+Two-Stage Hurdle XGBoost,MED-ATC-N02BE,Paracetamol,Analgesic,14,9.7936,13.7041,0.3133,31.33%,0.9941,104,1456
+Two-Stage Hurdle XGBoost,MED-ATC-N05B,Diazepam,Anxiolytic,14,3.931,5.3299,0.4813,48.13%,0.9885,104,1456
+Two-Stage Hurdle XGBoost,MED-ATC-N05C,Hypnotic/Sedative,Sedative,14,0.573,1.2268,1.0761,107.61%,0.1477,104,1456
+Two-Stage Hurdle XGBoost,MED-ATC-R03,Salbutamol,Respiratory,14,4.5688,6.158,0.7963,79.63%,0.8859,104,1456
+Two-Stage Hurdle XGBoost,MED-ATC-R06,Cetirizine,Antihistamine,14,1.7076,2.1451,0.5885,58.85%,0.9392,104,1456
+Two-Stage Hurdle XGBoost,MED-ATC-M01AB,Diclofenac,Anti-inflammatory,30,2.1931,2.7704,0.4191,41.91%,0.9932,103,3090
+Two-Stage Hurdle XGBoost,MED-ATC-M01AE,Ibuprofen,Anti-inflammatory,30,1.7277,2.1534,0.4285,42.85%,0.993,103,3090
+Two-Stage Hurdle XGBoost,MED-ATC-N02BA,Aspirin,Analgesic,30,1.8703,2.3187,0.4814,48.14%,0.9819,103,3090
+Two-Stage Hurdle XGBoost,MED-ATC-N02BE,Paracetamol,Analgesic,30,10.0036,14.1036,0.3201,32.01%,0.9946,103,3090
+Two-Stage Hurdle XGBoost,MED-ATC-N05B,Diazepam,Anxiolytic,30,3.9348,5.2996,0.4863,48.63%,0.9892,103,3090
+Two-Stage Hurdle XGBoost,MED-ATC-N05C,Hypnotic/Sedative,Sedative,30,0.5804,1.234,1.0958,109.58%,0.1254,103,3090
+Two-Stage Hurdle XGBoost,MED-ATC-R03,Salbutamol,Respiratory,30,4.6166,6.224,0.8051,80.51%,0.8842,103,3090
+Two-Stage Hurdle XGBoost,MED-ATC-R06,Cetirizine,Antihistamine,30,1.7643,2.2135,0.6039,60.39%,0.9403,103,3090

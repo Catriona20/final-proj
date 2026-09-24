@@ -1,0 +1,147 @@
+{
+    "evaluation_title": "Module 11 Final 2019 Holdout Test Set Evaluation",
+    "evaluated_at_utc": "2026-08-23T13:21:35.826352+00:00",
+    "test_dataset": "data/processed/pharmacy_demand_test.csv",
+    "test_period": "2019-01-01 to 2019-10-08",
+    "test_days_count": 281,
+    "champion_model": "Two-Stage Hurdle XGBoost (Frozen Champion)",
+    "baseline_model": "7-Day Moving Average",
+    "horizons_evaluated": [
+        7,
+        14,
+        30
+    ],
+    "overall_summary_by_horizon": {
+        "7": {
+            "baseline_wape": 0.6013,
+            "hurdle_wape": 0.5539,
+            "wape_improvement_pct": 7.87,
+            "baseline_mae": 3.2751,
+            "hurdle_mae": 3.0864,
+            "mae_improvement_pct": 5.76,
+            "baseline_rmse": 4.4922,
+            "hurdle_rmse": 4.3035,
+            "rmse_improvement_pct": 4.2,
+            "num_origins": 20
+        },
+        "14": {
+            "baseline_wape": 0.5932,
+            "hurdle_wape": 0.5585,
+            "wape_improvement_pct": 5.85,
+            "baseline_mae": 3.3355,
+            "hurdle_mae": 3.177,
+            "mae_improvement_pct": 4.75,
+            "baseline_rmse": 4.5074,
+            "hurdle_rmse": 4.3828,
+            "rmse_improvement_pct": 2.77,
+            "num_origins": 20
+        },
+        "30": {
+            "baseline_wape": 0.6072,
+            "hurdle_wape": 0.563,
+            "wape_improvement_pct": 7.29,
+            "baseline_mae": 3.4766,
+            "hurdle_mae": 3.1787,
+            "mae_improvement_pct": 8.57,
+            "baseline_rmse": 4.6913,
+            "hurdle_rmse": 4.399,
+            "rmse_improvement_pct": 6.23,
+            "num_origins": 18
+        }
+    },
+    "n05c_intermittent_diagnostics": {
+        "7": {
+            "zero_demand_pct": 64.29,
+            "precision": 0.375,
+            "recall": 0.06,
+            "f1": 0.1034,
+            "actual_zero_days": 90,
+            "pred_zero_days": 132,
+            "total_days": 140,
+            "baseline_wape": 1.484,
+            "hurdle_wape": 1.2233,
+            "baseline_mae": 0.901,
+            "hurdle_mae": 0.7427,
+            "baseline_rmse": 1.1654,
+            "hurdle_rmse": 1.0475
+        },
+        "14": {
+            "zero_demand_pct": 62.14,
+            "precision": 0.5,
+            "recall": 0.0472,
+            "f1": 0.0862,
+            "actual_zero_days": 174,
+            "pred_zero_days": 270,
+            "total_days": 280,
+            "baseline_wape": 1.3461,
+            "hurdle_wape": 1.1636,
+            "baseline_mae": 0.9327,
+            "hurdle_mae": 0.8062,
+            "baseline_rmse": 1.2033,
+            "hurdle_rmse": 1.1297
+        },
+        "30": {
+            "zero_demand_pct": 60.93,
+            "precision": 0.375,
+            "recall": 0.0284,
+            "f1": 0.0529,
+            "actual_zero_days": 329,
+            "pred_zero_days": 524,
+            "total_days": 540,
+            "baseline_wape": 1.3281,
+            "hurdle_wape": 1.1448,
+            "baseline_mae": 0.9444,
+            "hurdle_mae": 0.8141,
+            "baseline_rmse": 1.2013,
+            "hurdle_rmse": 1.1391
+        }
+    },
+    "r03_diagnostics": {
+        "7": {
+            "zero_demand_pct": 16.43,
+            "precision": 0.8357,
+            "recall": 1.0,
+            "f1": 0.9105,
+            "actual_zero_days": 23,
+            "pred_zero_days": 0,
+            "total_days": 140,
+            "baseline_wape": 0.7521,
+            "hurdle_wape": 0.7468,
+            "baseline_mae": 5.6269,
+            "hurdle_mae": 5.5875,
+            "baseline_rmse": 8.4885,
+            "hurdle_rmse": 8.6408
+        },
+        "14": {
+            "zero_demand_pct": 16.07,
+            "precision": 0.8393,
+            "recall": 1.0,
+            "f1": 0.9126,
+            "actual_zero_days": 45,
+            "pred_zero_days": 0,
+            "total_days": 280,
+            "baseline_wape": 0.7817,
+            "hurdle_wape": 0.764,
+            "baseline_mae": 5.4293,
+            "hurdle_mae": 5.3063,
+            "baseline_rmse": 7.8315,
+            "hurdle_rmse": 7.9124
+        },
+        "30": {
+            "zero_demand_pct": 15.93,
+            "precision": 0.8407,
+            "recall": 1.0,
+            "f1": 0.9135,
+            "actual_zero_days": 86,
+            "pred_zero_days": 0,
+            "total_days": 540,
+            "baseline_wape": 0.8175,
+            "hurdle_wape": 0.7628,
+            "baseline_mae": 5.7118,
+            "hurdle_mae": 5.3297,
+            "baseline_rmse": 7.9994,
+            "hurdle_rmse": 7.9149
+        }
+    },
+    "verdict": "FINAL HOLDOUT PASSED \u2014 MODEL READY FOR INTEGRATION"
+}

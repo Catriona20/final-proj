@@ -1,0 +1,49 @@
+model,medicine_id,medicine_name,category,horizon_days,mae,rmse,wape,wape_pct,num_forecast_windows,total_evaluated_points
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-M01AB,Diclofenac,Anti-inflammatory,7,2.095,2.8335,0.3891,38.91%,20,140
+7-Day Moving Average (Baseline),MED-ATC-M01AB,Diclofenac,Anti-inflammatory,7,2.2183,2.9084,0.412,41.20%,20,140
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-M01AE,Ibuprofen,Anti-inflammatory,7,1.7817,2.359,0.4727,47.27%,20,140
+7-Day Moving Average (Baseline),MED-ATC-M01AE,Ibuprofen,Anti-inflammatory,7,1.695,2.2228,0.4497,44.97%,20,140
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-N02BA,Aspirin,Analgesic,7,1.5039,1.8945,0.4827,48.27%,20,140
+7-Day Moving Average (Baseline),MED-ATC-N02BA,Aspirin,Analgesic,7,1.5473,1.9652,0.4967,49.67%,20,140
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-N02BE,Paracetamol,Analgesic,7,8.1626,11.4733,0.2896,28.96%,20,140
+7-Day Moving Average (Baseline),MED-ATC-N02BE,Paracetamol,Analgesic,7,8.8508,12.4047,0.3141,31.41%,20,140
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-N05B,Diazepam,Anxiolytic,7,3.009,3.7989,0.3548,35.48%,20,140
+7-Day Moving Average (Baseline),MED-ATC-N05B,Diazepam,Anxiolytic,7,3.4814,4.3253,0.4105,41.05%,20,140
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-N05C,Hypnotic/Sedative,Sedative,7,0.7427,1.0475,1.2233,122.33%,20,140
+7-Day Moving Average (Baseline),MED-ATC-N05C,Hypnotic/Sedative,Sedative,7,0.901,1.1654,1.484,148.40%,20,140
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-R03,Salbutamol,Respiratory,7,5.5875,8.6408,0.7468,74.68%,20,140
+7-Day Moving Average (Baseline),MED-ATC-R03,Salbutamol,Respiratory,7,5.6269,8.4885,0.7521,75.21%,20,140
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-R06,Cetirizine,Antihistamine,7,1.8089,2.3805,0.4725,47.25%,20,140
+7-Day Moving Average (Baseline),MED-ATC-R06,Cetirizine,Antihistamine,7,1.8804,2.4572,0.4912,49.12%,20,140
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-M01AB,Diclofenac,Anti-inflammatory,14,2.2039,2.8563,0.4068,40.68%,20,280
+7-Day Moving Average (Baseline),MED-ATC-M01AB,Diclofenac,Anti-inflammatory,14,2.2663,2.9227,0.4183,41.83%,20,280
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-M01AE,Ibuprofen,Anti-inflammatory,14,1.812,2.3488,0.4686,46.86%,20,280
+7-Day Moving Average (Baseline),MED-ATC-M01AE,Ibuprofen,Anti-inflammatory,14,1.7193,2.2113,0.4446,44.46%,20,280
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-N02BA,Aspirin,Analgesic,14,1.569,1.9815,0.4996,49.96%,20,280
+7-Day Moving Average (Baseline),MED-ATC-N02BA,Aspirin,Analgesic,14,1.6098,2.0433,0.5126,51.26%,20,280
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-N02BE,Paracetamol,Analgesic,14,8.6488,12.239,0.3051,30.51%,20,280
+7-Day Moving Average (Baseline),MED-ATC-N02BE,Paracetamol,Analgesic,14,9.2553,12.8156,0.3265,32.65%,20,280
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-N05B,Diazepam,Anxiolytic,14,3.2215,4.1555,0.3781,37.81%,20,280
+7-Day Moving Average (Baseline),MED-ATC-N05B,Diazepam,Anxiolytic,14,3.5657,4.543,0.4185,41.85%,20,280
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-N05C,Hypnotic/Sedative,Sedative,14,0.8062,1.1297,1.1636,116.36%,20,280
+7-Day Moving Average (Baseline),MED-ATC-N05C,Hypnotic/Sedative,Sedative,14,0.9327,1.2033,1.3461,134.61%,20,280
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-R03,Salbutamol,Respiratory,14,5.3063,7.9124,0.764,76.40%,20,280
+7-Day Moving Average (Baseline),MED-ATC-R03,Salbutamol,Respiratory,14,5.4293,7.8315,0.7817,78.17%,20,280
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-R06,Cetirizine,Antihistamine,14,1.8481,2.4388,0.482,48.20%,20,280
+7-Day Moving Average (Baseline),MED-ATC-R06,Cetirizine,Antihistamine,14,1.9053,2.4887,0.4969,49.69%,20,280
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-M01AB,Diclofenac,Anti-inflammatory,30,2.2024,2.8576,0.4106,41.06%,18,540
+7-Day Moving Average (Baseline),MED-ATC-M01AB,Diclofenac,Anti-inflammatory,30,2.2826,2.9334,0.4256,42.56%,18,540
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-M01AE,Ibuprofen,Anti-inflammatory,30,1.8886,2.4339,0.4963,49.63%,18,540
+7-Day Moving Average (Baseline),MED-ATC-M01AE,Ibuprofen,Anti-inflammatory,30,1.8635,2.3976,0.4897,48.97%,18,540
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-N02BA,Aspirin,Analgesic,30,1.6027,2.0089,0.51,51.00%,18,540
+7-Day Moving Average (Baseline),MED-ATC-N02BA,Aspirin,Analgesic,30,1.5908,2.0349,0.5062,50.62%,18,540
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-N02BE,Paracetamol,Analgesic,30,8.4206,12.1381,0.3123,31.23%,18,540
+7-Day Moving Average (Baseline),MED-ATC-N02BE,Paracetamol,Analgesic,30,9.8725,13.8723,0.3662,36.62%,18,540
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-N05B,Diazepam,Anxiolytic,30,3.2001,4.0793,0.3736,37.36%,18,540
+7-Day Moving Average (Baseline),MED-ATC-N05B,Diazepam,Anxiolytic,30,3.4731,4.3614,0.4055,40.55%,18,540
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-N05C,Hypnotic/Sedative,Sedative,30,0.8141,1.1391,1.1448,114.48%,18,540
+7-Day Moving Average (Baseline),MED-ATC-N05C,Hypnotic/Sedative,Sedative,30,0.9444,1.2013,1.3281,132.81%,18,540
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-R03,Salbutamol,Respiratory,30,5.3297,7.9149,0.7628,76.28%,18,540
+7-Day Moving Average (Baseline),MED-ATC-R03,Salbutamol,Respiratory,30,5.7118,7.9994,0.8175,81.75%,18,540
+Two-Stage Hurdle XGBoost (Frozen Champion),MED-ATC-R06,Cetirizine,Antihistamine,30,1.9717,2.6205,0.4932,49.32%,18,540
+7-Day Moving Average (Baseline),MED-ATC-R06,Cetirizine,Antihistamine,30,2.0741,2.7297,0.5188,51.88%,18,540

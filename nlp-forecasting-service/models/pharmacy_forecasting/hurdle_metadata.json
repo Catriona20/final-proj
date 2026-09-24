@@ -1,0 +1,70 @@
+{
+    "model_family": "Two-Stage Hurdle XGBoost Demand Forecaster",
+    "version": "1.0.0",
+    "training_dataset": "data/processed/pharmacy_demand_train.csv",
+    "training_sample_days": 1825,
+    "medicines_count": 8,
+    "medicines": [
+        "MED-ATC-M01AB",
+        "MED-ATC-M01AE",
+        "MED-ATC-N02BA",
+        "MED-ATC-N02BE",
+        "MED-ATC-N05B",
+        "MED-ATC-N05C",
+        "MED-ATC-R03",
+        "MED-ATC-R06"
+    ],
+    "feature_count": 25,
+    "feature_names": [
+        "medicine_code",
+        "lag_1",
+        "lag_2",
+        "lag_3",
+        "lag_7",
+        "lag_14",
+        "lag_21",
+        "lag_28",
+        "rolling_mean_7",
+        "rolling_mean_14",
+        "rolling_mean_28",
+        "rolling_std_7",
+        "rolling_std_14",
+        "rolling_std_28",
+        "day_of_week",
+        "day_of_month",
+        "week_of_year",
+        "month",
+        "quarter",
+        "is_weekend",
+        "zero_count_7",
+        "zero_count_14",
+        "zero_count_28",
+        "days_since_nonzero_demand",
+        "recent_nonzero_mean_28"
+    ],
+    "medicine_encoding": {
+        "MED-ATC-M01AB": 0,
+        "MED-ATC-M01AE": 1,
+        "MED-ATC-N02BA": 2,
+        "MED-ATC-N02BE": 3,
+        "MED-ATC-N05B": 4,
+        "MED-ATC-N05C": 5,
+        "MED-ATC-R03": 6,
+        "MED-ATC-R06": 7
+    },
+    "hyperparameters": {
+        "n_estimators": 50,
+        "max_depth": 4,
+        "learning_rate": 0.05,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "random_state": 42,
+        "threshold": null
+    },
+    "trained_horizons": [
+        7,
+        14,
+        30
+    ],
+    "created_at_utc": "2026-08-23T12:13:11.909284+00:00"
+}

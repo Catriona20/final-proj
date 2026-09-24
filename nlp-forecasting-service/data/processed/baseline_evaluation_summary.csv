@@ -1,0 +1,13 @@
+horizon_days,model,macro_wape,macro_wape_pct,macro_mae,macro_rmse,evaluated_series_count
+7,7-Day Moving Average,0.6423,64.23%,3.3732,4.5991,8
+7,Exponential Smoothing (Holt),0.6598,65.98%,3.4779,4.7209,8
+7,Naive Last Value,0.7489,74.89%,4.1953,5.6901,8
+7,7-Day Seasonal Naive,0.7768,77.68%,4.2507,5.7802,8
+14,7-Day Moving Average,0.6302,63.02%,3.4066,4.5872,8
+14,Exponential Smoothing (Holt),0.6612,66.12%,3.5815,4.8106,8
+14,Naive Last Value,0.7398,73.98%,4.2318,5.7263,8
+14,7-Day Seasonal Naive,0.7663,76.63%,4.2497,5.7565,8
+30,7-Day Moving Average,0.642,64.20%,3.5272,4.7346,8
+30,Exponential Smoothing (Holt),0.6935,69.35%,3.8106,5.1155,8
+30,Naive Last Value,0.7518,75.18%,4.308,5.8276,8
+30,7-Day Seasonal Naive,0.7772,77.72%,4.3584,5.8978,8

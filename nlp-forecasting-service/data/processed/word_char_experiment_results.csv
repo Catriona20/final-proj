@@ -1,0 +1,12 @@
+Metric,Champion (Word TF-IDF),Experimental (Word + Char),Delta (Exp - Champ)
+Accuracy,93.41%,95.59%,+2.18%
+Macro Precision,89.75%,93.30%,+3.55%
+Macro Recall,89.31%,92.18%,+2.86%
+Macro F1,89.30%,92.51%,+3.20%
+Weighted Precision,93.48%,95.57%,+2.09%
+Weighted Recall,93.41%,95.59%,+2.18%
+Weighted F1,93.38%,95.54%,+2.16%
+Total Errors,133,89,-44
+Rule E Coverage,76.72%,91.38%,+14.66%
+Rule E Selective Accuracy,98.52%,97.99%,-0.52%
+Rule E Errors Removed,110,52,-58
