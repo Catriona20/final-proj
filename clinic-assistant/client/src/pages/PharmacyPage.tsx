@@ -66,6 +66,11 @@ export const PharmacyPage: React.FC<PharmacyPageProps> = ({
     (rxMedName: string, rxDosage: string = '', items: PharmacyItem[]): PharmacyItem | undefined => {
       if (!rxMedName || items.length === 0) return undefined;
       const normRx = rxMedName.toLowerCase().trim();
+
+      // Rule 0: SKU match if prescription references SKU or item SKU matches
+      const skuMatch = items.find((i) => i.sku && (normRx === i.sku.toLowerCase() || normRx.includes(i.sku.toLowerCase())));
+      if (skuMatch) return skuMatch;
+
       const rxHasAmox = normRx.includes('amoxicillin');
       const rxHasClav = normRx.includes('clavulanate') || normRx.includes('potassium clavulanate');
       const rxHas625 = normRx.includes('625') || rxDosage.includes('625');
@@ -74,7 +79,8 @@ export const PharmacyPage: React.FC<PharmacyPageProps> = ({
       if (rxHasAmox && !rxHasClav && !rxHas625) {
         return items.find((i) => {
           const name = i.name.toLowerCase();
-          return name.includes('amoxicillin') && !name.includes('clavulanate');
+          const gen = (i.generic_name || '').toLowerCase();
+          return (name.includes('amoxicillin') || gen.includes('amoxicillin')) && !name.includes('clavulanate') && !gen.includes('clavulanate');
         });
       }
 
@@ -82,19 +88,21 @@ export const PharmacyPage: React.FC<PharmacyPageProps> = ({
       if (rxHasClav || (rxHasAmox && rxHas625)) {
         const combo = items.find((i) => {
           const name = i.name.toLowerCase();
-          return name.includes('amoxicillin') && name.includes('clavulanate');
+          const gen = (i.generic_name || '').toLowerCase();
+          return (name.includes('amoxicillin') || gen.includes('amoxicillin')) && (name.includes('clavulanate') || gen.includes('clavulanate'));
         });
         if (combo) return combo;
       }
 
-      // Rule 3: Exact name match
-      const exact = items.find((i) => i.name.toLowerCase() === normRx);
+      // Rule 3: Exact name or generic match
+      const exact = items.find((i) => i.name.toLowerCase() === normRx || (i.generic_name && i.generic_name.toLowerCase() === normRx));
       if (exact) return exact;
 
       // Rule 4: Substring match with strict strength check
       return items.find((i) => {
         const iName = i.name.toLowerCase();
-        const nameMatch = iName.includes(normRx) || normRx.includes(iName);
+        const iGen = (i.generic_name || '').toLowerCase();
+        const nameMatch = iName.includes(normRx) || normRx.includes(iName) || (iGen && (iGen.includes(normRx) || normRx.includes(iGen)));
         if (!nameMatch) return false;
 
         const iStrength = (i.strength || '').toLowerCase().replace(/\s+/g, '');
@@ -102,6 +110,7 @@ export const PharmacyPage: React.FC<PharmacyPageProps> = ({
         if (iStrength && (rxStr.includes('500mg') || rxStr.includes('625mg') || rxStr.includes('650mg'))) {
           if (rxStr.includes('625') && !iStrength.includes('625') && !iName.includes('625')) return false;
           if (rxStr.includes('500') && !iStrength.includes('500') && !iName.includes('500')) return false;
+          if (rxStr.includes('650') && !iStrength.includes('650') && !iName.includes('650')) return false;
         }
         return true;
       });
@@ -114,7 +123,7 @@ export const PharmacyPage: React.FC<PharmacyPageProps> = ({
     try {
       const [items, alerts, fc, rxList] = await Promise.all([
         clinicApi.getPharmacyInventory({ search: localSearch, category: selectedCategory, clinicId: currentClinicId }),
-        clinicApi.getLowStockAlerts(),
+        clinicApi.getLowStockAlerts(currentClinicId),
         clinicApi.getPharmacyForecast(),
         clinicApi.getPendingPrescriptions(currentClinicId),
       ]);
@@ -499,7 +508,7 @@ export const PharmacyPage: React.FC<PharmacyPageProps> = ({
                               </p>
                               {matchedItem ? (
                                 <p className="text-[10px] text-teal-700 font-medium mt-0.5 flex items-center gap-1">
-                                  <span>SKU: {matchedItem.name}</span>
+                                  <span>SKU: {matchedItem.sku || matchedItem.name}</span>
                                   <span className="text-slate-400">•</span>
                                   <span>Avail: {matchedItem.quantity}</span>
                                 </p>
@@ -566,7 +575,14 @@ export const PharmacyPage: React.FC<PharmacyPageProps> = ({
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-5 py-3.5">
-                        <div className="font-semibold text-slate-900">{item.name}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-900">{item.name}</span>
+                          {item.sku && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium bg-slate-100 text-slate-600 rounded">
+                              {item.sku}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-slate-400">{item.generic_name || item.name} • {item.strength}</div>
                       </td>
                       <td className="px-4 py-3.5">

@@ -75,9 +75,32 @@ const getAuditLogs = async (req, res, next) => {
   }
 };
 
+const createAuditLog = async (req, res, next) => {
+  try {
+    const { action, resourceType, resourceId, details, userId, ipAddress } = req.body;
+    const { logAuditEvent } = require('../utils/auditLogger');
+    await logAuditEvent({
+      userId: userId || req.user?.id || 'system-admin',
+      action: action || 'SECURITY_AUDIT',
+      resourceType: resourceType || 'PHARMACY',
+      resourceId: resourceId || null,
+      details: details || {},
+      ipAddress: ipAddress || req.ip || '127.0.0.1',
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Audit event persisted successfully.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
   getMe,
   getAuditLogs,
+  createAuditLog,
 };

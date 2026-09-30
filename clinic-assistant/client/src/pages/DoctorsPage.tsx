@@ -26,6 +26,37 @@ import { useClinic } from '../context/ClinicContext.js';
 import { clinicApi } from '../services/api.js';
 import { Doctor, DoctorStatus } from '../types/doctor.js';
 
+const formatDisplayDate = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  const clean = String(dateStr).includes('T') ? String(dateStr).split('T')[0] : String(dateStr).trim();
+  const match = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return clean;
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = parseInt(match[3], 10);
+  const month = months[parseInt(match[2], 10) - 1];
+  const year = match[1];
+  return `${day} ${month} ${year}`;
+};
+
+const formatTimestampDisplay = (isoStr?: string): string => {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return isoStr;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    const hours = d.getHours();
+    const mins = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayH = hours % 12 === 0 ? 12 : hours % 12;
+    return `${day} ${month} ${year} ${displayH}:${mins} ${ampm}`;
+  } catch {
+    return isoStr;
+  }
+};
+
 interface DoctorsPageProps {
   searchQuery?: string;
   setSearchQuery?: (q: string) => void;
@@ -390,12 +421,18 @@ export const DoctorsPage: React.FC<DoctorsPageProps> = ({
                         </div>
                         <div className="flex items-center gap-2">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          <span><strong>Date:</strong> {req.date}</span>
+                          <span><strong>Date:</strong> {formatDisplayDate(req.date || req.requested_date)}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
                           <span><strong>Shift Window:</strong> {req.start_time} – {req.end_time}</span>
                         </div>
+                        {req.updated_at && !isPending && (
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 pt-0.5">
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            <span><strong>Updated:</strong> {formatTimestampDisplay(req.updated_at)}</span>
+                          </div>
+                        )}
                         {req.notes && (
                           <div className="text-slate-500 italic pt-1">
                             "{req.notes}"

@@ -18,8 +18,12 @@ export interface GroupedTimeSlots {
 export function normalizeDoctor(d: any): Doctor {
   if (!d) return d;
   const isVerified = d.isVerified ?? d.is_verified ?? (d.verification_status === 'VERIFIED');
-  const isAvailableToday = d.isAvailableToday ?? d.is_available_today ?? (d.status === 'AVAILABLE');
-  const status = d.status || (isAvailableToday ? 'AVAILABLE' : 'OFFLINE');
+  const liveStatus = (d.liveStatus || d.live_status || d.status || 'OFFLINE').toUpperCase();
+  const isAvailableToday = d.isAvailableToday ?? d.is_available_today ?? false;
+  // Use the computed `status` from backend directly. Do NOT derive from liveStatus alone,
+  // because liveStatus comes from DoctorClinicAssignmentModel while `status` (finalStatus)
+  // already incorporates the approved-schedule check from GET /api/doctors.
+  const status = d.status || liveStatus;
   return {
     ...d,
     id: d.id,
@@ -36,6 +40,13 @@ export function normalizeDoctor(d: any): Doctor {
     waitTime: d.waitTime || d.wait_time || '15 min',
     isAvailableToday: Boolean(isAvailableToday),
     status,
+    liveStatus,
+    availabilityStatus: d.availabilityStatus || d.availability_status || (d.hasApprovedSchedule ? 'APPROVED' : 'NONE'),
+    // Default hasApprovedSchedule to FALSE — if the backend doesn't provide it,
+    // we must NOT assume the doctor has an approved schedule.
+    hasApprovedSchedule: d.hasApprovedSchedule ?? d.has_approved_schedule ?? false,
+    // isInsideSchedule is informational only — default to false
+    isInsideSchedule: d.isInsideSchedule ?? d.is_inside_schedule ?? false,
     languages: d.languages || ['English', 'Tamil'],
     consultationFee: d.consultationFee || d.consultation_fee || '₹400',
     isPreferred: d.isPreferred ?? d.is_preferred ?? false,
@@ -49,6 +60,7 @@ export function normalizeDoctor(d: any): Doctor {
     lastVisitedDate: d.lastVisitedDate,
   };
 }
+
 
 export const doctorService = {
   async getDoctors(clinicId?: string): Promise<Doctor[]> {
@@ -73,56 +85,11 @@ export const doctorService = {
     }
   },
 
-  getGroupedTimeSlots(doctorId: string, date?: string): GroupedTimeSlots {
-    const todayStr = timeUtils.getTodayDateString();
-    const isToday =
-      !date ||
-      date === todayStr ||
-      date.toLowerCase().includes('today') ||
-      date.toLowerCase() === new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toLowerCase();
-
-    const currentHour = new Date().getHours();
-    const currentMinute = new Date().getMinutes();
-
-    const isSlotPast = (slotTime: string) => {
-      if (!isToday) return false;
-      const isPM = slotTime.toUpperCase().includes('PM');
-      const isAM = slotTime.toUpperCase().includes('AM');
-      const parts = slotTime.replace(/[^\d:]/g, '').split(':');
-      let hour = parseInt(parts[0], 10) || 0;
-      const minute = parseInt(parts[1], 10) || 0;
-      if (isPM && hour < 12) hour += 12;
-      if (isAM && hour === 12) hour = 0;
-      return hour < currentHour || (hour === currentHour && minute <= currentMinute);
-    };
-
-    const getStatus = (time: string, defaultStatus: 'Available' | 'Limited' | 'Recommended' = 'Available') => {
-      if (isSlotPast(time)) return 'Unavailable';
-      return defaultStatus;
-    };
-
+  getGroupedTimeSlots(_doctorId: string, _date?: string): GroupedTimeSlots {
     return {
-      morning: [
-        { time: '09:00 AM', status: getStatus('09:00 AM', 'Available') },
-        { time: '09:30 AM', status: getStatus('09:30 AM', 'Available') },
-        { time: '10:00 AM', status: getStatus('10:00 AM', 'Available') },
-        { time: '10:30 AM', status: getStatus('10:30 AM', 'Limited') },
-        { time: '11:00 AM', status: getStatus('11:00 AM', 'Available') },
-      ],
-      afternoon: [
-        { time: '02:00 PM', status: getStatus('02:00 PM', 'Available') },
-        { time: '02:30 PM', status: getStatus('02:30 PM', 'Available') },
-        { time: '03:00 PM', status: getStatus('03:00 PM', 'Limited') },
-        { time: '03:30 PM', status: getStatus('03:30 PM', 'Available') },
-        { time: '04:00 PM', status: getStatus('04:00 PM', 'Available') },
-      ],
-      evening: [
-        { time: '05:30 PM', status: getStatus('05:30 PM', 'Available') },
-        { time: '06:00 PM', status: getStatus('06:00 PM', 'Available') },
-        { time: '06:30 PM', status: getStatus('06:30 PM', 'Recommended'), reasoning: 'Lowest estimated wait (~8 min)' },
-        { time: '07:00 PM', status: getStatus('07:00 PM', 'Available') },
-        { time: '07:30 PM', status: getStatus('07:30 PM', 'Limited') },
-      ],
+      morning: [],
+      afternoon: [],
+      evening: [],
     };
   },
 

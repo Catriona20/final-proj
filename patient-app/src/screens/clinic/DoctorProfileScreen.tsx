@@ -34,6 +34,7 @@ import { SPACING, RADIUS, SHADOWS, TYPOGRAPHY, getThemeColors } from '../../cons
 import { useAppointmentStore } from '../../store/useAppointmentStore';
 import { useThemeStore } from '../../store/useThemeStore';
 import { ThemeToggle } from '../../components/ThemeToggle';
+import { socketService } from '../../services/socketService';
 
 type DoctorProfileNavProp = StackNavigationProp<AppStackParamList, 'DoctorProfile'>;
 type DoctorProfileRouteProp = RouteProp<AppStackParamList, 'DoctorProfile'>;
@@ -58,9 +59,27 @@ export const DoctorProfileScreen: React.FC = () => {
         if (found) setLiveDoctor(found);
       });
     }
+
+    const handleStatusUpdate = (data: any) => {
+      const dId = data?.doctorId || data?.doctor_id;
+      const newStatus = (data?.status || '').toUpperCase();
+      if (dId === doctorId && newStatus) {
+        setLiveDoctor((prev) => ({
+          ...prev,
+          status: newStatus,
+          liveStatus: newStatus,
+          isAvailableToday: newStatus === 'AVAILABLE',
+        }));
+      }
+    };
+    socketService.subscribe('doctor:status_updated', handleStatusUpdate);
+    return () => {
+      socketService.unsubscribe('doctor:status_updated', handleStatusUpdate);
+    };
   }, [doctorId, doctor.clinicId]);
 
   const isDoctorAvailable = Boolean(liveDoctor.isAvailableToday && liveDoctor.status === 'AVAILABLE');
+  const isDoctorBusy = liveDoctor.status === 'BUSY';
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -115,6 +134,8 @@ export const DoctorProfileScreen: React.FC = () => {
                     {
                       backgroundColor: isDoctorAvailable
                         ? 'rgba(16, 185, 129, 0.2)'
+                        : isDoctorBusy
+                        ? 'rgba(245, 158, 11, 0.2)'
                         : 'rgba(148, 163, 184, 0.2)',
                     },
                   ]}
@@ -122,16 +143,28 @@ export const DoctorProfileScreen: React.FC = () => {
                   <View
                     style={[
                       styles.statusDot,
-                      { backgroundColor: isDoctorAvailable ? '#10B981' : '#94A3B8' },
+                      {
+                        backgroundColor: isDoctorAvailable
+                          ? '#10B981'
+                          : isDoctorBusy
+                          ? '#FBBF24'
+                          : '#94A3B8',
+                      },
                     ]}
                   />
                   <Text
                     style={[
                       styles.statusBadgeText,
-                      { color: isDoctorAvailable ? '#6EE7B7' : '#94A3B8' },
+                      {
+                        color: isDoctorAvailable
+                          ? '#6EE7B7'
+                          : isDoctorBusy
+                          ? '#FDE68A'
+                          : '#94A3B8',
+                      },
                     ]}
                   >
-                    {isDoctorAvailable ? 'AVAILABLE' : 'NOT SCHEDULED / OFFLINE'}
+                    {isDoctorAvailable ? 'AVAILABLE' : isDoctorBusy ? 'BUSY' : 'NOT AVAILABLE / OFFLINE'}
                   </Text>
                 </View>
               </View>
@@ -280,10 +313,10 @@ export const DoctorProfileScreen: React.FC = () => {
             <Text
               style={[
                 styles.bookBtnText,
-                { color: isDark ? '#94A3B8' : '#64748B' },
+                { color: isDoctorBusy ? (isDark ? '#FBBF24' : '#B45309') : (isDark ? '#94A3B8' : '#64748B') },
               ]}
             >
-              Not Available
+              {isDoctorBusy ? 'Busy' : 'Not Available'}
             </Text>
           </View>
         )}

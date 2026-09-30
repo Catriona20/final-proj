@@ -283,24 +283,61 @@ simulationRouter.post('/complete-consultation', async (req: Request, res: Respon
     // 2. Mark appointment completed
     const updatedApt = await AppointmentModel.update(appointmentId, {
       status: 'Completed',
+      appointmentStatus: 'COMPLETED',
       patients_ahead: 0,
+      queue_position: 0,
       estimated_wait: 'Completed',
       prescription_available: true,
+      consultationCompletedAt: new Date().toISOString(),
     });
 
+    const completionPayload = {
+      appointmentId,
+      queueId: `q-${appointmentId}`,
+      patientId: targetApt.patient_id,
+      patientName: targetApt.patient_name,
+      status: 'Completed',
+      appointmentStatus: 'COMPLETED',
+      clinicId: targetApt.clinic_id,
+      doctorId: targetApt.doctor_id,
+      patientsAhead: 0,
+      queuePosition: 0,
+      estimatedWait: 'Completed',
+      prescriptionAvailable: true,
+      prescription,
+    };
+
     // 3. Emit real-time socket events
-    emitToPatient(targetApt.patient_id, 'appointment:status', {
-      appointmentId,
-      status: 'Completed',
-      prescriptionAvailable: true,
-      prescription,
-    });
-    emitToAppointment(appointmentId, 'appointment:status', {
-      appointmentId,
-      status: 'Completed',
-      prescriptionAvailable: true,
-      prescription,
-    });
+    emitToPatient(targetApt.patient_id, 'appointment:status', completionPayload);
+    emitToPatient(targetApt.patient_id, 'appointment:updated', completionPayload);
+    emitToPatient(targetApt.patient_id, 'queue:updated', completionPayload);
+    emitToPatient(targetApt.patient_id, 'consultation:completed', completionPayload);
+
+    emitToAppointment(appointmentId, 'appointment:status', completionPayload);
+    emitToAppointment(appointmentId, 'appointment:updated', completionPayload);
+    emitToAppointment(appointmentId, 'queue:updated', completionPayload);
+    emitToAppointment(appointmentId, 'consultation:completed', completionPayload);
+
+    if (targetApt.clinic_id) {
+      emitToClinic(targetApt.clinic_id, 'queue:updated', completionPayload);
+      emitToClinic(targetApt.clinic_id, 'appointment:status', completionPayload);
+      emitToClinic(targetApt.clinic_id, 'appointment:updated', completionPayload);
+      emitToClinic(targetApt.clinic_id, 'consultation:completed', completionPayload);
+    }
+
+    if (targetApt.doctor_id) {
+      emitToDoctor(targetApt.doctor_id, 'queue:updated', completionPayload);
+      emitToDoctor(targetApt.doctor_id, 'appointment:status', completionPayload);
+      emitToDoctor(targetApt.doctor_id, 'appointment:updated', completionPayload);
+      emitToDoctor(targetApt.doctor_id, 'consultation:completed', completionPayload);
+      await DoctorModel.update(targetApt.doctor_id, { status: 'AVAILABLE' });
+    }
+
+    emitBroadcast('appointment:status', completionPayload);
+    emitBroadcast('appointment:updated', completionPayload);
+    emitBroadcast('queue:updated', completionPayload);
+    emitBroadcast('queue:completed', completionPayload);
+    emitBroadcast('consultation:completed', completionPayload);
 
     // 4. Send notification
     await notificationService.sendNotification({
@@ -394,8 +431,8 @@ simulationRouter.post('/seed-demo', async (_req: Request, res: Response): Promis
   }
 });
 
-// POST /api/simulation/reset-demo
-simulationRouter.post('/reset-demo', async (_req: Request, res: Response): Promise<void> => {
+// POST /api/simulation/reset-demo & /api/simulation/demo-reset
+const handleResetDemo = async (_req: Request, res: Response): Promise<void> => {
   try {
     const { seedDatabase } = await import('../database/seed');
     const { memoryDb } = await import('../database/db');
@@ -417,12 +454,23 @@ simulationRouter.post('/reset-demo', async (_req: Request, res: Response): Promi
     emitBroadcast('appointment:updated', { message: 'Demo state reset' });
     emitBroadcast('clock:updated', { demoClockActive: false, currentTime: new Date().toISOString() });
     emitBroadcast('doctor:availability_changed', { clinicId: 'all' });
+    emitBroadcast('doctor:availability_updated', { clinicId: 'all', doctorId: 'all', status: 'UNAVAILABLE' });
+    emitBroadcast('clinic:schedule_updated', { clinicId: 'all' });
+    emitBroadcast('appointment:slot_activated', {
+      clinicId: 'all',
+      doctorId: 'all',
+      slots: { morning: [], afternoon: [], evening: [] },
+    });
+    emitBroadcast('availability_request:cleared', { all: true });
     emitBroadcast('notification:cleared', { all: true });
+    emitBroadcast('demo:reset', { timestamp: Date.now() });
 
     // Gather reset verification statistics
     const activeQueuesCount = memoryDb.appointment_queue.size;
     const walkInsCount = memoryDb.walk_ins.size;
     const notificationsCount = memoryDb.notifications.size;
+    const availabilityRequestsCount = memoryDb.availability_requests.size;
+    const appointmentsCount = memoryDb.appointments.size;
     const slotLocksCount = getActiveBookingLocksCount();
     const activeConsultations = Array.from(memoryDb.appointments.values()).filter(
       (a: any) => ['In Consultation', 'IN_CONSULTATION'].includes(a.status || a.appointmentStatus)
@@ -435,6 +483,9 @@ simulationRouter.post('/reset-demo', async (_req: Request, res: Response): Promi
         patients: memoryDb.patients.size,
         clinics: memoryDb.clinics.size,
         doctors: memoryDb.doctors.size,
+        assistants: memoryDb.assistants?.size || 0,
+        appointments: appointmentsCount,
+        availability_requests: availabilityRequestsCount,
         active_queues: activeQueuesCount,
         active_consultations: activeConsultations,
         walk_ins: walkInsCount,
@@ -446,6 +497,41 @@ simulationRouter.post('/reset-demo', async (_req: Request, res: Response): Promi
   } catch (err: any) {
     console.error('Error resetting demo state:', err);
     res.status(500).json({ success: false, error: 'Failed to reset demo data.' });
+  }
+};
+
+simulationRouter.post('/reset-demo', handleResetDemo);
+simulationRouter.post('/demo-reset', handleResetDemo);
+
+// GET /api/simulation/demo-counts
+simulationRouter.get('/demo-counts', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const { memoryDb } = await import('../database/db');
+    const doctorEmails = Array.from(memoryDb.doctors.values()).map((d: any) => d.email).filter(Boolean);
+    const patientEmails = Array.from(memoryDb.patients.values())
+      .filter((p: any) => p.role !== 'CLINIC_ADMIN')
+      .map((p: any) => p.email)
+      .filter(Boolean);
+    const assistantEmails = Array.from(memoryDb.assistants?.values() || [])
+      .map((a: any) => a.email)
+      .filter(Boolean);
+
+    res.status(200).json({
+      success: true,
+      counts: {
+        clinics: memoryDb.clinics.size,
+        doctors: memoryDb.doctors.size,
+        patients: patientEmails.length,
+        assistants: assistantEmails.length,
+      },
+      emails: {
+        doctors: doctorEmails,
+        patients: patientEmails,
+        assistants: assistantEmails,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

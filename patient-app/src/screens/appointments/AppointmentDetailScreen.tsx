@@ -42,6 +42,8 @@ import { AppointmentTimeline } from '../../components/AppointmentTimeline';
 import { DigitalPrescriptionModal } from '../../components/DigitalPrescriptionModal';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { timeUtils } from '../../utils/timeUtils';
+import { socketService } from '../../services/socketService';
+import { healthRecordsService } from '../../services/healthRecordsService';
 
 type AppointmentDetailNavProp = StackNavigationProp<AppStackParamList, 'AppointmentDetail'>;
 type AppointmentDetailRouteProp = RouteProp<AppStackParamList, 'AppointmentDetail'>;
@@ -129,10 +131,26 @@ export const AppointmentDetailScreen: React.FC = () => {
   const isCancelled = appointment.status === 'Cancelled';
   const canModify = !isCompleted && !isCancelled && appointment.status !== 'In Consultation';
 
+  const [modalPrescription, setModalPrescription] = useState<any>(appointment?.prescription || null);
+
   React.useEffect(() => {
+    // Join appointment room for targeted real-time WebSocket updates
+    if (appointmentId) {
+      socketService.joinAppointment(appointmentId);
+    }
     // Refresh appointments in background to guarantee live queue accuracy
     useAppointmentStore.getState().initializeStore();
   }, [appointmentId]);
+
+  React.useEffect(() => {
+    if (appointment?.prescription) {
+      setModalPrescription(appointment.prescription);
+    } else if (isCompleted && appointment?.prescriptionAvailable) {
+      healthRecordsService.getPrescriptionByAppointmentId(appointmentId).then((rx: any) => {
+        if (rx) setModalPrescription(rx);
+      });
+    }
+  }, [appointment?.prescription, isCompleted, appointment?.prescriptionAvailable, appointmentId]);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
@@ -170,7 +188,30 @@ export const AppointmentDetailScreen: React.FC = () => {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* 1. DYNAMIC LIVE QUEUE VISUALIZER OR UPCOMING ADVISORY */}
-        {appointment.status === 'Cancelled' ? null : ['Checked In', 'In Consultation', 'Waiting', 'Next', 'Almost Your Turn'].includes(appointment.status) ? (
+        {appointment.status === 'Cancelled' ? null : isCompleted ? (
+          <View
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: isDark ? '#0C2347' : '#FFFFFF',
+                borderColor: theme.success,
+                borderLeftWidth: 4,
+              },
+            ]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <CheckCircle size={20} color={theme.success} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>
+                  Consultation Completed
+                </Text>
+                <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>
+                  Your consultation with {appointment.doctorName} was completed. Digital prescription and clinical notes are available below.
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : ['Checked In', 'In Consultation', 'Waiting', 'Next', 'Almost Your Turn'].includes(appointment.status) ? (
           <QueueVisualizer
             tokenNumber={appointment.tokenNumber || '#01'}
             queuePosition={appointment.queuePosition || 1}
@@ -207,9 +248,8 @@ export const AppointmentDetailScreen: React.FC = () => {
           </View>
         )}
 
-
         {/* Digital Prescription Banner (when doctor completes consultation) */}
-        {isCompleted && appointment.prescription && (
+        {isCompleted && (appointment.prescription || appointment.prescriptionAvailable || modalPrescription) && (
           <TouchableOpacity
             style={[styles.prescriptionBanner, { backgroundColor: theme.successLight, borderColor: theme.success }]}
             onPress={() => setIsPrescriptionModalVisible(true)}
@@ -471,7 +511,7 @@ export const AppointmentDetailScreen: React.FC = () => {
       <DigitalPrescriptionModal
         visible={isPrescriptionModalVisible}
         onClose={() => setIsPrescriptionModalVisible(false)}
-        prescription={appointment.prescription || null}
+        prescription={modalPrescription || appointment.prescription || null}
       />
     </SafeAreaView>
   );

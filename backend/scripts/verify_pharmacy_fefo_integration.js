@@ -32,6 +32,13 @@ async function run() {
   }
   console.log('✅ Demo reset completed successfully.');
 
+  // Set demo clock to 2026-09-09 10:00 AM for deterministic testing
+  await fetch(`${BASE_URL}/api/simulation/demo-clock`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ simulatedIsoString: '2026-09-09T10:00:00+05:30' }),
+  });
+
   // 2. Query initial pharmacy inventory for Moon Dental Clinic (c-demo-moon-01)
   console.log('\n--- Step 2: Querying initial Pharmacy Inventory for Amoxicillin & Clavulanate ---');
   const invRes = await fetch(`${BASE_URL}/api/pharmacy/inventory?clinic_id=c-demo-moon-01&search=Amoxicillin`);

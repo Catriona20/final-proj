@@ -1,6 +1,7 @@
 export interface PharmacyItem {
   id: string;
   clinic_id?: string;
+  sku?: string;
   name: string;
   generic_name?: string;
   category: string;

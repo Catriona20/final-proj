@@ -357,7 +357,7 @@ export const clinicApi = {
         specialization: d.specialization || d.specialty || 'General Medicine',
         room: d.room || `Room ${d.id.replace(/\D/g, '') || '101'}`,
         roomNumber: d.room || d.roomNumber || `Room ${d.id.replace(/\D/g, '') || '101'}`,
-        status: (d.status || 'AVAILABLE').toUpperCase() as any,
+        status: ((d.liveStatus || d.live_status || d.status) || 'AVAILABLE').toUpperCase() as any,
         todayPatients: d.todayPatients !== undefined ? d.todayPatients : (d.todayAppointmentsCount || 0),
         todayAppointmentsCount: d.todayAppointmentsCount !== undefined ? d.todayAppointmentsCount : (d.todayPatients || 0),
         currentPatients: d.currentPatients !== undefined ? d.currentPatients : 0,
@@ -432,6 +432,32 @@ export const clinicApi = {
     }
   },
 
+  async updateDoctorStatus(
+    doctorId: string,
+    clinicId: string,
+    status: string
+  ): Promise<{ success: boolean; doctorId?: string; clinicId?: string; status?: string; updatedAt?: string; error?: string }> {
+    try {
+      const res = await fetch(`${API_BASE}/doctors/${encodeURIComponent(doctorId)}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, clinicId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update doctor status');
+      return {
+        success: true,
+        doctorId: data.doctorId || doctorId,
+        clinicId: data.clinicId || clinicId,
+        status: data.status || status,
+        updatedAt: data.updatedAt || new Date().toISOString(),
+      };
+    } catch (err: any) {
+      console.warn('updateDoctorStatus API error:', err);
+      return { success: false, error: err.message };
+    }
+  },
+
   // ==========================================
   // PHARMACY & INVENTORY ENDPOINTS
   // ==========================================
@@ -494,9 +520,12 @@ export const clinicApi = {
     }
   },
 
-  async getLowStockAlerts(): Promise<any[]> {
+  async getLowStockAlerts(clinicId?: string): Promise<any[]> {
     try {
-      const res = await fetch(`${API_BASE}/pharmacy/low-stock`);
+      const url = clinicId
+        ? `${API_BASE}/pharmacy/low-stock?clinicId=${encodeURIComponent(clinicId)}`
+        : `${API_BASE}/pharmacy/low-stock`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error('Network response not ok');
       const data = await res.json();
       return data.alerts || [];
@@ -687,7 +716,15 @@ export const clinicApi = {
       const res = await fetch(url);
       if (!res.ok) return [];
       const json = await res.json();
-      return json.requests || [];
+      const raw = json.requests || [];
+      return raw.map((r: any) => {
+        const canonicalDate = r.date || r.requested_date || r.requestedDate || '';
+        return {
+          ...r,
+          date: canonicalDate,
+          requested_date: canonicalDate,
+        };
+      });
     } catch {
       return [];
     }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,37 @@ import { ThemeToggle } from '../../components/ThemeToggle';
 import { DoctorAvailabilityStatus, Appointment } from '../../types';
 import { timeUtils } from '../../utils/timeUtils';
 
+const formatDisplayDate = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  const clean = String(dateStr).includes('T') ? String(dateStr).split('T')[0] : String(dateStr).trim();
+  const match = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return clean;
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = parseInt(match[3], 10);
+  const month = months[parseInt(match[2], 10) - 1];
+  const year = match[1];
+  return `${day} ${month} ${year}`;
+};
+
+const formatTimestampDisplay = (isoStr?: string): string => {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return isoStr;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    const hours = d.getHours();
+    const mins = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayH = hours % 12 === 0 ? 12 : hours % 12;
+    return `${day} ${month} ${year} ${displayH}:${mins} ${ampm}`;
+  } catch {
+    return isoStr;
+  }
+};
+
 interface DoctorHomeScreenProps {
   navigation: any;
 }
@@ -69,6 +100,30 @@ export const DoctorHomeScreen: React.FC<DoctorHomeScreenProps> = ({ navigation }
   const [refreshing, setRefreshing] = useState(false);
   const [liveTime, setLiveTime] = useState(timeUtils.formatCurrentTime());
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+
+  const groupedRequestsByDate = useMemo(() => {
+    const groups: { dateKey: string; displayDate: string; requests: typeof availabilityRequests }[] = [];
+    const dateMap = new Map<string, typeof availabilityRequests>();
+
+    for (const req of availabilityRequests) {
+      const rawDate = req.date || (req as any).requested_date || (req as any).requestedDate || '';
+      const normDate = rawDate ? formatDisplayDate(rawDate) : 'General Schedule';
+      if (!dateMap.has(normDate)) {
+        dateMap.set(normDate, []);
+      }
+      dateMap.get(normDate)!.push(req);
+    }
+
+    for (const [displayDate, reqs] of dateMap.entries()) {
+      groups.push({
+        dateKey: displayDate,
+        displayDate,
+        requests: reqs,
+      });
+    }
+
+    return groups;
+  }, [availabilityRequests]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -231,7 +286,7 @@ export const DoctorHomeScreen: React.FC<DoctorHomeScreenProps> = ({ navigation }
         />
 
         <View style={styles.requestsContainer}>
-          {availabilityRequests.length === 0 ? (
+          {groupedRequestsByDate.length === 0 ? (
             <View style={[styles.emptyRequestsCard, { backgroundColor: colors.card, borderColor: colors.border }, SHADOWS.light]}>
               <Clock size={20} color={colors.secondaryText} />
               <Text style={[styles.emptyRequestsText, { color: colors.secondaryText }]}>
@@ -239,15 +294,29 @@ export const DoctorHomeScreen: React.FC<DoctorHomeScreenProps> = ({ navigation }
               </Text>
             </View>
           ) : (
-            availabilityRequests.map((req) => {
-              const isPending = req.status === 'PENDING';
-              const isApproved = req.status === 'APPROVED';
-              const isRejected = req.status === 'REJECTED';
-              const isProcessing = processingRequestId === req.id;
+            groupedRequestsByDate.map((group) => (
+              <View key={group.dateKey} style={styles.dateGroupContainer}>
+                <View style={styles.dateGroupHeader}>
+                  <Calendar size={14} color={colors.primary} />
+                  <Text style={[styles.dateGroupHeaderText, { color: colors.text }]}>
+                    {group.displayDate}
+                  </Text>
+                  <View style={[styles.dateGroupBadge, { backgroundColor: colors.cardSubtle }]}>
+                    <Text style={[styles.dateGroupBadgeText, { color: colors.secondaryText }]}>
+                      {group.requests.length} schedule{group.requests.length > 1 ? 's' : ''}
+                    </Text>
+                  </View>
+                </View>
 
-              return (
-                <View
-                  key={req.id}
+                {group.requests.map((req) => {
+                  const isPending = req.status === 'PENDING';
+                  const isApproved = req.status === 'APPROVED';
+                  const isRejected = req.status === 'REJECTED';
+                  const isProcessing = processingRequestId === req.id;
+
+                  return (
+                    <View
+                      key={req.id}
                   style={[
                     styles.requestCard,
                     {
@@ -303,16 +372,28 @@ export const DoctorHomeScreen: React.FC<DoctorHomeScreenProps> = ({ navigation }
                     <View style={styles.requestDetailRow}>
                       <Calendar size={13} color={colors.secondaryText} />
                       <Text style={[styles.requestDetailText, { color: colors.text }]}>
-                        <Text style={{ fontWeight: 'bold' }}>Date: </Text>{req.date}
+                        <Text style={{ fontWeight: 'bold' }}>Date: </Text>
+                        {formatDisplayDate(req.date || (req as any).requested_date)}
                       </Text>
                     </View>
 
                     <View style={styles.requestDetailRow}>
                       <Clock size={13} color={colors.secondaryText} />
                       <Text style={[styles.requestDetailText, { color: colors.text }]}>
-                        <Text style={{ fontWeight: 'bold' }}>Requested Window: </Text>{req.start_time} – {req.end_time}
+                        <Text style={{ fontWeight: 'bold' }}>Shift Window: </Text>
+                        {req.start_time} – {req.end_time}
                       </Text>
                     </View>
+
+                    {Boolean(req.updated_at && !isPending) && (
+                      <View style={styles.requestDetailRow}>
+                        <Clock size={13} color={colors.secondaryText} />
+                        <Text style={[styles.requestDetailText, { color: colors.secondaryText }]}>
+                          <Text style={{ fontWeight: 'bold' }}>Updated: </Text>
+                          {formatTimestampDisplay(req.updated_at)}
+                        </Text>
+                      </View>
+                    )}
 
                     {req.notes ? (
                       <Text style={[styles.requestNotesText, { color: colors.secondaryText }]}>
@@ -357,9 +438,11 @@ export const DoctorHomeScreen: React.FC<DoctorHomeScreenProps> = ({ navigation }
                   )}
                 </View>
               );
-            })
-          )}
-        </View>
+            })}
+          </View>
+        ))
+      )}
+    </View>
 
         {/* TODAY'S SCHEDULE TIMELINE */}
         <SectionHeader
@@ -633,7 +716,31 @@ const styles = StyleSheet.create({
   },
   requestsContainer: {
     marginBottom: 20,
+    gap: 14,
+  },
+  dateGroupContainer: {
+    marginBottom: 10,
     gap: 10,
+  },
+  dateGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 4,
+    marginBottom: 2,
+  },
+  dateGroupHeaderText: {
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.extraBold,
+  },
+  dateGroupBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  dateGroupBadgeText: {
+    fontSize: TYPOGRAPHY.sizes.micro,
+    fontWeight: TYPOGRAPHY.weights.bold,
   },
   emptyRequestsCard: {
     padding: 16,

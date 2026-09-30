@@ -1,5 +1,6 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import { resolveCanonicalClinicId, resolveCanonicalDoctorId } from '../database/models';
 
 let io: SocketIOServer | null = null;
 
@@ -34,7 +35,11 @@ export const initSocketService = (httpServer: HttpServer): SocketIOServer => {
     socket.on('join:doctor', (doctorId: string) => {
       if (doctorId) {
         socket.join(`doctor:${doctorId}`);
-        console.log(`🩺 Socket ${socket.id} joined doctor room: doctor:${doctorId}`);
+        const canon = resolveCanonicalDoctorId(doctorId);
+        if (canon && canon !== doctorId) {
+          socket.join(`doctor:${canon}`);
+        }
+        console.log(`🩺 Socket ${socket.id} joined doctor room: doctor:${doctorId} (canon: ${canon})`);
       }
     });
 
@@ -42,7 +47,11 @@ export const initSocketService = (httpServer: HttpServer): SocketIOServer => {
     socket.on('join:clinic', (clinicId: string) => {
       if (clinicId) {
         socket.join(`clinic:${clinicId}`);
-        console.log(`🏥 Socket ${socket.id} joined clinic room: clinic:${clinicId}`);
+        const canon = resolveCanonicalClinicId(clinicId);
+        if (canon && canon !== clinicId) {
+          socket.join(`clinic:${canon}`);
+        }
+        console.log(`🏥 Socket ${socket.id} joined clinic room: clinic:${clinicId} (canon: ${canon})`);
       }
     });
 
@@ -70,12 +79,20 @@ export const emitToPatient = (patientId: string, event: string, data: any): void
 export const emitToDoctor = (doctorId: string, event: string, data: any): void => {
   if (io) {
     io.to(`doctor:${doctorId}`).emit(event, data);
+    const canon = resolveCanonicalDoctorId(doctorId);
+    if (canon && canon !== doctorId) {
+      io.to(`doctor:${canon}`).emit(event, data);
+    }
   }
 };
 
 export const emitToClinic = (clinicId: string, event: string, data: any): void => {
   if (io) {
     io.to(`clinic:${clinicId}`).emit(event, data);
+    const canon = resolveCanonicalClinicId(clinicId);
+    if (canon && canon !== clinicId) {
+      io.to(`clinic:${canon}`).emit(event, data);
+    }
   }
 };
 

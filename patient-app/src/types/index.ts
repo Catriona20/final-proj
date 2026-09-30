@@ -87,6 +87,10 @@ export interface Doctor {
   waitTime?: string;
   isAvailableToday?: boolean;
   status?: string;
+  liveStatus?: string;
+  availabilityStatus?: string;
+  hasApprovedSchedule?: boolean;
+  isInsideSchedule?: boolean;
   languages: string[];
   consultationFee: string;
   isPreferred?: boolean;

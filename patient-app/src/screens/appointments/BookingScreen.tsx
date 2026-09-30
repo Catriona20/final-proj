@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -54,6 +54,7 @@ import { PreviousDoctorCard } from '../../components/PreviousDoctorCard';
 import { PreviousVisitCard } from '../../components/PreviousVisitCard';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { timeUtils } from '../../utils/timeUtils';
+import { socketService } from '../../services/socketService';
 
 type BookingNavProp = StackNavigationProp<AppStackParamList, 'Booking'>;
 type BookingRouteProp = RouteProp<AppStackParamList, 'Booking'>;
@@ -151,6 +152,25 @@ export const BookingScreen: React.FC = () => {
     if (arun) rawAvailableDoctors = [arun, ...rawAvailableDoctors];
   }
 
+  // Filter doctors by requested specialty/department if specified
+  const targetSpecialty = (department || (params as any).category || (params as any).department || '').trim().toLowerCase();
+  if (targetSpecialty && targetSpecialty !== 'all' && targetSpecialty !== 'general') {
+    const specFiltered = rawAvailableDoctors.filter((d) => {
+      const spec = (d.specialization || '').toLowerCase();
+      const subSpec = ((d as any).primary_specialization || (d as any).subSpecialization || '').toLowerCase();
+      return (
+        spec === targetSpecialty ||
+        spec.includes(targetSpecialty) ||
+        targetSpecialty.includes(spec) ||
+        subSpec.includes(targetSpecialty) ||
+        targetSpecialty.includes(subSpec)
+      );
+    });
+    if (specFiltered.length > 0) {
+      rawAvailableDoctors = specFiltered;
+    }
+  }
+
   // Deduplicate strictly by ID
   const doctorMap = new Map<string, Doctor>();
   rawAvailableDoctors.forEach((d) => {
@@ -165,10 +185,64 @@ export const BookingScreen: React.FC = () => {
     if (selectedClinic?.id) {
       doctorService.getDoctors(selectedClinic.id).then((docs) => {
         if (docs && docs.length > 0) {
-          setClinicLiveDoctors(docs);
+          if (targetSpecialty && targetSpecialty !== 'all' && targetSpecialty !== 'general') {
+            const specDocs = docs.filter((d) => {
+              const spec = (d.specialization || '').toLowerCase();
+              const subSpec = ((d as any).primary_specialization || (d as any).subSpecialization || '').toLowerCase();
+              return (
+                spec === targetSpecialty ||
+                spec.includes(targetSpecialty) ||
+                targetSpecialty.includes(spec) ||
+                subSpec.includes(targetSpecialty) ||
+                targetSpecialty.includes(subSpec)
+              );
+            });
+            setClinicLiveDoctors(specDocs.length > 0 ? specDocs : docs);
+          } else {
+            setClinicLiveDoctors(docs);
+          }
         }
       });
     }
+
+    const handleStatusUpdate = (data: any) => {
+      const cId = data?.clinic_id || data?.clinicId;
+      const dId = data?.doctor_id || data?.doctorId;
+      const newStatus = (data?.status || '').toUpperCase();
+      if (!cId || cId === selectedClinic?.id || cId === 'all') {
+        if (dId && newStatus) {
+          setClinicLiveDoctors((prev) =>
+            prev.map((doc) => {
+              if (doc.id === dId || (doc as any).doctor_id === dId) {
+                return {
+                  ...doc,
+                  status: newStatus,
+                  liveStatus: newStatus,
+                  isAvailableToday: newStatus === 'AVAILABLE',
+                };
+              }
+              return doc;
+            })
+          );
+          setSelectedDoctor((prev) => {
+            if (prev?.id === dId || (prev as any)?.doctor_id === dId) {
+              return {
+                ...prev,
+                status: newStatus,
+                liveStatus: newStatus,
+                isAvailableToday: newStatus === 'AVAILABLE',
+              };
+            }
+            return prev;
+          });
+        }
+      }
+    };
+
+    socketService.subscribe('doctor:status_updated', handleStatusUpdate);
+    return () => {
+      socketService.unsubscribe('doctor:status_updated', handleStatusUpdate);
+    };
   }, [selectedClinic?.id]);
 
   const availableDoctorsForClinic = Array.from(doctorMap.values()).map((doc) => {
@@ -279,7 +353,7 @@ export const BookingScreen: React.FC = () => {
     evening: [],
   });
 
-  useEffect(() => {
+  const fetchAvailableSlots = useCallback(() => {
     if (selectedDoctor?.id && selectedDate) {
       doctorService.getAvailableSlots(selectedDoctor.id, selectedDate, selectedClinic?.id).then((slots) => {
         if (slots) {
@@ -298,6 +372,35 @@ export const BookingScreen: React.FC = () => {
       });
     }
   }, [selectedDoctor?.id, selectedDate, selectedClinic?.id]);
+
+  useEffect(() => {
+    fetchAvailableSlots();
+  }, [fetchAvailableSlots]);
+
+  // Real-time synchronization: update slots immediately without refresh when doctor approves/rejects, new booking occurs, or demo resets
+  useEffect(() => {
+    const unsub1 = socketService.subscribe('appointment:slot_activated', fetchAvailableSlots);
+    const unsub2 = socketService.subscribe('availability_request:approved', fetchAvailableSlots);
+    const unsub3 = socketService.subscribe('availability_request:rejected', fetchAvailableSlots);
+    const unsub4 = socketService.subscribe('doctor:availability_updated', fetchAvailableSlots);
+    const unsub5 = socketService.subscribe('doctor:availability_changed', fetchAvailableSlots);
+    const unsub6 = socketService.subscribe('clinic:schedule_updated', fetchAvailableSlots);
+    const unsub7 = socketService.subscribe('appointment:created', fetchAvailableSlots);
+    const unsub8 = socketService.subscribe('appointment:status', fetchAvailableSlots);
+    const unsub9 = socketService.subscribe('demo:reset', fetchAvailableSlots);
+
+    return () => {
+      unsub1();
+      unsub2();
+      unsub3();
+      unsub4();
+      unsub5();
+      unsub6();
+      unsub7();
+      unsub8();
+      unsub9();
+    };
+  }, [fetchAvailableSlots]);
 
   const clinicPreviousVisit = getPreviousVisitForClinic(selectedClinic.id);
 
@@ -576,6 +679,8 @@ export const BookingScreen: React.FC = () => {
                             backgroundColor:
                               doctor.status === 'AVAILABLE' && doctor.isAvailableToday
                                 ? isDark ? 'rgba(16, 185, 129, 0.2)' : '#DCFCE7'
+                                : doctor.status === 'BUSY'
+                                ? isDark ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7'
                                 : isDark ? 'rgba(148, 163, 184, 0.2)' : '#F1F5F9',
                           },
                         ]}
@@ -585,7 +690,11 @@ export const BookingScreen: React.FC = () => {
                             styles.statusDot,
                             {
                               backgroundColor:
-                                doctor.status === 'AVAILABLE' && doctor.isAvailableToday ? '#10B981' : '#94A3B8',
+                                doctor.status === 'AVAILABLE' && doctor.isAvailableToday
+                                  ? '#10B981'
+                                  : doctor.status === 'BUSY'
+                                  ? '#FBBF24'
+                                  : '#94A3B8',
                             },
                           ]}
                         />
@@ -596,11 +705,17 @@ export const BookingScreen: React.FC = () => {
                               color:
                                 doctor.status === 'AVAILABLE' && doctor.isAvailableToday
                                   ? isDark ? '#6EE7B7' : '#15803D'
+                                  : doctor.status === 'BUSY'
+                                  ? isDark ? '#FBBF24' : '#B45309'
                                   : isDark ? '#94A3B8' : '#64748B',
                             },
                           ]}
                         >
-                          {doctor.status === 'AVAILABLE' && doctor.isAvailableToday ? 'AVAILABLE' : 'NOT SCHEDULED / OFFLINE'}
+                          {doctor.status === 'AVAILABLE' && doctor.isAvailableToday
+                            ? 'AVAILABLE'
+                            : doctor.status === 'BUSY'
+                            ? 'BUSY'
+                            : 'NOT AVAILABLE / OFFLINE'}
                         </Text>
                       </View>
                     </View>
@@ -1011,8 +1126,29 @@ export const BookingScreen: React.FC = () => {
 
         {stage === 'doctor' && (
           <TouchableOpacity
-            style={[styles.nextBtn, { backgroundColor: theme.cta }]}
-            onPress={() => setStage('reason')}
+            style={[
+              styles.nextBtn,
+              {
+                backgroundColor:
+                  selectedDoctor?.status === 'AVAILABLE' && selectedDoctor?.isAvailableToday
+                    ? theme.cta
+                    : isDark ? '#1E293B' : '#CBD5E1',
+                opacity:
+                  selectedDoctor?.status === 'AVAILABLE' && selectedDoctor?.isAvailableToday ? 1 : 0.6,
+              },
+            ]}
+            onPress={() => {
+              if (selectedDoctor?.status !== 'AVAILABLE' || !selectedDoctor?.isAvailableToday) {
+                Alert.alert(
+                  'Doctor Unavailable',
+                  `Doctor ${selectedDoctor?.name || ''} is currently ${
+                    selectedDoctor?.status === 'BUSY' ? 'busy' : 'offline / not available'
+                  }. Please select an available doctor.`
+                );
+                return;
+              }
+              setStage('reason');
+            }}
             activeOpacity={0.88}
           >
             <Text style={styles.nextBtnText}>Continue to Details</Text>

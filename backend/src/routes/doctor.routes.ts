@@ -143,7 +143,7 @@ doctorRouter.get('/procedures/catalog', async (req: Request, res: Response): Pro
 doctorRouter.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const clinicId = req.query.clinicId as string;
-    const department = req.query.department as string;
+    const department = (req.query.department || req.query.specialty || req.query.specialization) as string;
     const procedure = (req.query.procedure as string || '').toLowerCase();
     const query = (req.query.query as string || '').toLowerCase();
 
@@ -251,45 +251,80 @@ doctorRouter.get('/', async (req: Request, res: Response): Promise<void> => {
           }
         }
 
-        let status = formatted.status;
-        let isAvailableToday = formatted.isAvailableToday;
+        const clinicSpecificStatus = canonicalClinic
+          ? await DoctorClinicAssignmentModel.getStatus(doc.id, canonicalClinic)
+          : null;
+        const liveStatus = clinicSpecificStatus || doc.status || 'AVAILABLE';
 
-        if (canonicalClinic) {
-          if (doc.status === 'OFFLINE' || doc.is_available_today === false) {
-            status = 'OFFLINE';
-            isAvailableToday = false;
-          } else {
-            const requests = await AvailabilityRequestModel.getRequests({
-              doctorId: doc.id,
-              clinicId: canonicalClinic,
+        const requests = await AvailabilityRequestModel.getRequests({
+          doctorId: doc.id,
+          clinicId: canonicalClinic || resolveCanonicalClinicId(doc.clinic_id),
+        });
+
+        const checkDate = targetDate
+          ? timeService.normalizeDateString(targetDate)
+          : todayStr;
+        const isToday = checkDate === todayStr;
+
+        const approvedRequestsForDate = requests.filter(
+          (r) =>
+            r.status === 'APPROVED' &&
+            timeService.normalizeDateString(r.date || r.requested_date) === checkDate
+        );
+        const hasApprovedSchedule = approvedRequestsForDate.length > 0;
+
+        let isInsideSchedule = false;
+        if (isToday) {
+          const currentClinicDate = timeService.getCurrentClinicDate();
+          const currentTotalMins = currentClinicDate.getHours() * 60 + currentClinicDate.getMinutes();
+
+          if (hasApprovedSchedule) {
+            isInsideSchedule = approvedRequestsForDate.some((r) => {
+              const startMins = parseTimeToMinutes(r.start_time);
+              const endMins = parseTimeToMinutes(r.end_time);
+              return currentTotalMins >= startMins && currentTotalMins <= endMins;
             });
-
-            let hasApproved = false;
-            if (targetDate) {
-              hasApproved = requests.some(
-                (r) => r.status === 'APPROVED' && timeService.normalizeDateString(r.requested_date) === targetDate
-              );
-            } else {
-              hasApproved = requests.some((r) => r.status === 'APPROVED');
-            }
-
-            if (hasApproved) {
-              status = isConsultingNow ? 'BUSY' : (doc.status === 'BUSY' && !isConsultingNow ? 'AVAILABLE' : doc.status || 'AVAILABLE');
-              isAvailableToday = true;
-            } else {
-              status = 'OFFLINE';
-              isAvailableToday = false;
-            }
           }
+        }
+
+        let finalStatus: 'AVAILABLE' | 'BUSY' | 'OFFLINE' = 'OFFLINE';
+        let isAvailableToday = false;
+
+        // Determine final status from approved schedule + live status.
+        // NOTE: isInsideSchedule (current time within schedule window) is kept
+        // as informational metadata ONLY. It must NOT gate finalStatus because
+        // a doctor with an approved schedule later today (e.g. 10 PM–11 PM) and
+        // live status AVAILABLE should appear AVAILABLE so patients can book now.
+        if (!hasApprovedSchedule) {
+          // No approved schedule for this date → not bookable
+          finalStatus = 'OFFLINE';
+          isAvailableToday = false;
+        } else if (liveStatus === 'OFFLINE') {
+          // Clinic-specific or global live status says OFFLINE
+          finalStatus = 'OFFLINE';
+          isAvailableToday = false;
+        } else if (liveStatus === 'BUSY' || isConsultingNow) {
+          // Doctor is busy / currently in consultation
+          finalStatus = 'BUSY';
+          isAvailableToday = false;
+        } else if (liveStatus === 'AVAILABLE') {
+          // Approved schedule exists and doctor is live-available
+          finalStatus = 'AVAILABLE';
+          isAvailableToday = true;
         } else {
-          if (isConsultingNow) {
-            status = 'BUSY';
-          }
+          finalStatus = 'OFFLINE';
+          isAvailableToday = false;
         }
 
         return {
           ...formatted,
-          status,
+          status: finalStatus,
+          liveStatus,
+          live_status: liveStatus,
+          availabilityStatus: hasApprovedSchedule ? 'APPROVED' : 'NONE',
+          availability_status: hasApprovedSchedule ? 'APPROVED' : 'NONE',
+          hasApprovedSchedule,
+          isInsideSchedule,
           isAvailableToday,
           is_available_today: isAvailableToday,
           todayPatients: todayAppointmentsCount,
@@ -502,20 +537,92 @@ doctorRouter.put('/:id/verification', handleDoctorVerification);
 // PATCH & PUT /api/doctors/:id/status (Update doctor availability)
 const handleDoctorStatusUpdate = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { status, wait_time } = req.body || {};
-    const updated = await DoctorModel.update(req.params.id, {
-      status,
-      is_available_today: status !== 'OFFLINE',
-      wait_time: wait_time || undefined,
-    });
+    const { status: inputStatus, clinicId: inputClinicId, clinic_id, wait_time } = req.body || {};
+    const rawStatus = (inputStatus || '').toString().toUpperCase().trim().replace(/[\s-]+/g, '_');
 
-    if (!updated) {
+    let normalizedStatus: 'AVAILABLE' | 'BUSY' | 'OFFLINE' = 'AVAILABLE';
+    if (['OFFLINE', 'UNAVAILABLE', 'OFF_DUTY'].includes(rawStatus)) {
+      normalizedStatus = 'OFFLINE';
+    } else if (rawStatus === 'BUSY') {
+      normalizedStatus = 'BUSY';
+    } else {
+      normalizedStatus = 'AVAILABLE';
+    }
+
+    const doctorId = req.params.id;
+    const canonicalDocId = resolveCanonicalDoctorId(doctorId);
+    const doctor = (await DoctorModel.getById(doctorId)) || (await DoctorModel.getById(canonicalDocId));
+
+    if (!doctor) {
       res.status(404).json({ success: false, error: 'Doctor not found.' });
       return;
     }
 
-    const { password_hash, ...safeDoctor } = updated;
-    res.status(200).json({ success: true, doctor: safeDoctor });
+    const targetClinicRaw =
+      inputClinicId ||
+      clinic_id ||
+      (req.query.clinicId as string) ||
+      (req.query.clinic_id as string) ||
+      doctor.clinic_id;
+    const canonicalClinicId = targetClinicRaw
+      ? resolveCanonicalClinicId(targetClinicRaw)
+      : resolveCanonicalClinicId(doctor.clinic_id);
+
+    // Persist clinic-specific live status
+    await DoctorClinicAssignmentModel.setStatus(doctor.id, canonicalClinicId, normalizedStatus);
+
+    // If primary clinic, also update DoctorModel baseline
+    const isPrimaryClinic = canonicalClinicId === resolveCanonicalClinicId(doctor.clinic_id);
+    if (isPrimaryClinic) {
+      await DoctorModel.update(doctor.id, {
+        status: normalizedStatus,
+        is_available_today: normalizedStatus !== 'OFFLINE',
+        wait_time: wait_time || undefined,
+      });
+    }
+
+    const updatedAt = new Date().toISOString();
+    const payload = {
+      doctorId: doctor.id,
+      clinicId: canonicalClinicId,
+      status: normalizedStatus,
+      updatedAt,
+    };
+
+    // Emit scoped socket events
+    emitToClinic(canonicalClinicId, 'doctor:status_updated', payload);
+    if (targetClinicRaw && targetClinicRaw !== canonicalClinicId) {
+      emitToClinic(targetClinicRaw, 'doctor:status_updated', payload);
+    }
+    emitToDoctor(doctor.id, 'doctor:status_updated', payload);
+    if (canonicalDocId !== doctor.id) {
+      emitToDoctor(canonicalDocId, 'doctor:status_updated', payload);
+    }
+
+    // Broadcast across all clients (Patient App, Clinic Assistant, Doctor App)
+    emitBroadcast('doctor:status_updated', payload);
+    emitBroadcast('doctor:availability_updated', {
+      ...payload,
+      isAvailableToday: normalizedStatus !== 'OFFLINE',
+    });
+    emitBroadcast('doctor:availability_changed', {
+      ...payload,
+      isAvailableToday: normalizedStatus !== 'OFFLINE',
+    });
+
+    const { password_hash, ...safeDoctor } = doctor;
+    res.status(200).json({
+      success: true,
+      doctorId: doctor.id,
+      clinicId: canonicalClinicId,
+      status: normalizedStatus,
+      updatedAt,
+      doctor: {
+        ...safeDoctor,
+        status: normalizedStatus,
+        is_available_today: normalizedStatus !== 'OFFLINE',
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, error: 'Failed to update doctor status.' });
   }
@@ -945,16 +1052,38 @@ doctorRouter.post('/auth/availability', authenticateDoctorJwt, async (req: Authe
     const status = statusMap[rawStatus] || 'AVAILABLE';
     const isAvailable = status === 'AVAILABLE' || status === 'BUSY';
 
+    const targetClinicRaw = req.body.clinicId || req.body.clinic_id || doctor.clinic_id;
+    const canonicalClinicId = targetClinicRaw ? resolveCanonicalClinicId(targetClinicRaw) : resolveCanonicalClinicId(doctor.clinic_id);
+
+    // Persist clinic assignment status
+    await DoctorClinicAssignmentModel.setStatus(doctor.id, canonicalClinicId, status as any);
+
     const updated = await DoctorModel.update(doctor.id, {
       status: status as any,
       is_available_today: isAvailable,
     });
 
+    const updatedAt = new Date().toISOString();
+    const statusPayload = {
+      doctorId: doctor.id,
+      clinicId: canonicalClinicId,
+      status,
+      updatedAt,
+    };
+
+    // Emit doctor:status_updated
+    emitToClinic(canonicalClinicId, 'doctor:status_updated', statusPayload);
+    if (targetClinicRaw && targetClinicRaw !== canonicalClinicId) {
+      emitToClinic(targetClinicRaw, 'doctor:status_updated', statusPayload);
+    }
+    emitToDoctor(doctor.id, 'doctor:status_updated', statusPayload);
+    emitBroadcast('doctor:status_updated', statusPayload);
+
     // Broadcast Real-time Event via Socket.IO
     emitBroadcast('doctor:availability_changed', {
       doctorId: doctor.id,
       doctorName: doctor.name,
-      clinicId: doctor.clinic_id,
+      clinicId: canonicalClinicId,
       status,
       isAvailableToday: status !== 'OFFLINE',
     });
@@ -962,7 +1091,7 @@ doctorRouter.post('/auth/availability', authenticateDoctorJwt, async (req: Authe
     emitBroadcast('doctor:availability_updated', {
       doctorId: doctor.id,
       doctorName: doctor.name,
-      clinicId: doctor.clinic_id,
+      clinicId: canonicalClinicId,
       status,
       isAvailableToday: status !== 'OFFLINE',
       date: timeService.getTodayDateString(),
@@ -970,12 +1099,10 @@ doctorRouter.post('/auth/availability', authenticateDoctorJwt, async (req: Authe
 
     emitToDoctor(doctor.id, 'doctor:availability_changed', { status });
     emitToDoctor(doctor.id, 'doctor:availability_updated', { status });
-    if (doctor.clinic_id) {
-      emitToClinic(doctor.clinic_id, 'doctor:availability_updated', {
-        doctorId: doctor.id,
-        status,
-      });
-    }
+    emitToClinic(canonicalClinicId, 'doctor:availability_updated', {
+      doctorId: doctor.id,
+      status,
+    });
 
     await AuditLogModel.log(
       'UPDATE_AVAILABILITY',
@@ -1634,12 +1761,20 @@ doctorRouter.post('/auth/consultations', authenticateDoctorJwt, async (req: Auth
         status: 'Completed',
         appointmentStatus: 'COMPLETED',
         patients_ahead: 0,
+        queue_position: 0,
         estimated_wait: 'Completed',
+        consultationCompletedAt: new Date().toISOString(),
+        prescription_available: !!createdPrescription,
         updated_at: new Date().toISOString(),
       });
+      // Explicitly remove from active queue index
+      memoryDb.appointment_queue.delete(appointmentId);
+      memoryDb.appointment_queue.delete(`queue-${appointmentId}`);
+      memoryDb.appointment_queue.delete(`q-${appointmentId}`);
     } else if (walkin) {
       walkin.status = 'COMPLETED';
       walkin.queue_position = 0;
+      walkin.patients_ahead = 0;
       walkin.estimated_wait_minutes = 0;
       walkin.completed_at = new Date().toISOString();
       memoryDb.walk_ins.set(walkin.id, walkin);
@@ -1664,18 +1799,28 @@ doctorRouter.post('/auth/consultations', authenticateDoctorJwt, async (req: Auth
       if (qItem.appointmentId) {
         const apt = memoryDb.appointments.get(qItem.appointmentId);
         if (apt && ['Waiting', 'WAITING', 'Checked In', 'CHECKED_IN', 'Almost Your Turn', 'Next'].includes(apt.status)) {
+          const newStatus = qItem.patientsAhead === 0 ? 'Next' : (qItem.patientsAhead === 1 ? 'Almost Your Turn' : 'Waiting');
+          apt.status = newStatus;
           apt.queue_position = qItem.queuePosition;
           apt.patients_ahead = qItem.patientsAhead;
           apt.estimated_wait = qItem.estimatedWaitText;
           memoryDb.appointments.set(apt.id, apt);
 
-          emitToPatient(apt.patient_id, 'queue:updated', {
+          const qPayload = {
             appointmentId: apt.id,
             status: apt.status,
             patientsAhead: apt.patients_ahead,
             queuePosition: apt.queue_position,
             estimatedWait: apt.estimated_wait,
-          });
+            clinicId: targetClinicId,
+            doctorId: doctor.id,
+          };
+
+          emitToPatient(apt.patient_id, 'queue:updated', qPayload);
+          emitToAppointment(apt.id, 'queue:updated', qPayload);
+          emitBroadcast('queue:updated', qPayload);
+          emitToClinic(targetClinicId, 'queue:updated', qPayload);
+          emitToDoctor(doctor.id, 'queue:updated', qPayload);
         }
       }
     }
@@ -1686,30 +1831,48 @@ doctorRouter.post('/auth/consultations', authenticateDoctorJwt, async (req: Auth
       queueId: appointmentId.startsWith('walk-') ? `q-w-${appointmentId}` : `q-${appointmentId}`,
       patientId: effectivePatientId,
       patientName,
-      status: 'COMPLETED',
+      status: 'Completed',
+      appointmentStatus: 'COMPLETED',
       clinicId: targetClinicId,
       doctorId: doctor.id,
+      patientsAhead: 0,
+      queuePosition: 0,
+      estimatedWait: 'Completed',
       prescriptionAvailable: !!createdPrescription,
+      prescription: createdPrescription,
     };
 
     emitToClinic(targetClinicId, 'queue:updated', completionPayload);
     emitToClinic(targetClinicId, 'appointment:status', completionPayload);
     emitToClinic(targetClinicId, 'appointment:updated', completionPayload);
+    emitToClinic(targetClinicId, 'consultation:completed', completionPayload);
+
     emitToDoctor(doctor.id, 'queue:updated', completionPayload);
+    emitToDoctor(doctor.id, 'appointment:status', completionPayload);
+    emitToDoctor(doctor.id, 'appointment:updated', completionPayload);
     emitToDoctor(doctor.id, 'queue:completed', {
       appointmentId,
       patientId: effectivePatientId,
       consultation: newConsultation,
+      prescription: createdPrescription,
     });
-    emitToPatient(effectivePatientId, 'appointment:status', {
-      appointmentId,
-      status: 'Completed',
-      prescriptionAvailable: !!createdPrescription,
-    });
-    emitToPatient(effectivePatientId, 'queue:updated', completionPayload);
+    emitToDoctor(doctor.id, 'consultation:completed', completionPayload);
 
-    emitBroadcast('queue:updated', completionPayload);
+    emitToPatient(effectivePatientId, 'appointment:status', completionPayload);
+    emitToPatient(effectivePatientId, 'appointment:updated', completionPayload);
+    emitToPatient(effectivePatientId, 'queue:updated', completionPayload);
+    emitToPatient(effectivePatientId, 'consultation:completed', completionPayload);
+
+    emitToAppointment(appointmentId, 'appointment:status', completionPayload);
+    emitToAppointment(appointmentId, 'appointment:updated', completionPayload);
+    emitToAppointment(appointmentId, 'queue:updated', completionPayload);
+    emitToAppointment(appointmentId, 'consultation:completed', completionPayload);
+
+    emitBroadcast('appointment:status', completionPayload);
     emitBroadcast('appointment:updated', completionPayload);
+    emitBroadcast('queue:updated', completionPayload);
+    emitBroadcast('queue:completed', completionPayload);
+    emitBroadcast('consultation:completed', completionPayload);
 
     // 9. Send Patient Notification
     await notificationService.sendNotification({

@@ -102,6 +102,9 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           .dark-map-tiles .leaflet-tile {
             filter: brightness(0.6) invert(1) contrast(2.2) hue-rotate(200deg) saturate(0.35);
           }
+          .leaflet-top, .leaflet-bottom {
+            z-index: 950 !important;
+          }
           @keyframes pulse-ring {
             0% { transform: scale(0.6); opacity: 0.9; }
             70% { transform: scale(1.5); opacity: 0; }
@@ -386,7 +389,9 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
       // 4. Draw Route line and Route Info Badge if a clinic is selected
       if (showRoute && selectedClinic && selectedClinic.latitude && selectedClinic.longitude) {
-        const start = [centerCoords.latitude, centerCoords.longitude];
+        const startLat = searchedLocation?.latitude || centerCoords.latitude;
+        const startLng = searchedLocation?.longitude || centerCoords.longitude;
+        const start = [startLat, startLng];
         const end = [selectedClinic.latitude, selectedClinic.longitude];
 
         // Smooth curve calculation for road trajectory representation
@@ -404,17 +409,18 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           <div style="
             background-color: ${isDark ? '#06152F' : '#FFFFFF'};
             color: ${isDark ? '#FFFFFF' : '#0B1736'};
-            border: 1.5px solid #0D47C9;
+            border: 2px solid #0D47C9;
             border-radius: 20px;
             padding: 4px 10px;
             font-size: 11px;
             font-weight: 800;
             white-space: nowrap;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
             display: flex;
             align-items: center;
             gap: 4px;
             pointer-events: none;
+            z-index: 850;
           ">
             ${badgeLabel}
           </div>
@@ -423,8 +429,8 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         const badgeIcon = window.L.divIcon({
           html: badgeHtml,
           className: 'route-info-badge',
-          iconSize: [110, 26],
-          iconAnchor: [55, 13],
+          iconSize: [125, 28],
+          iconAnchor: [62, 14],
         });
 
         routeBadgeMarkerRef.current = window.L.marker([midLat, midLng], {
@@ -432,8 +438,12 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           zIndexOffset: 850,
         }).addTo(map);
 
-        const bounds = window.L.latLngBounds([start, end]);
-        map.fitBounds(bounds, { padding: [70, 70], animate: true });
+        const bounds = window.L.latLngBounds([start, [midLat, midLng], end]);
+        map.fitBounds(bounds, {
+          paddingBottomRight: [50, 260],
+          paddingTopLeft: [50, 50],
+          animate: true,
+        });
       } else if (selectedClinic && selectedClinic.latitude && selectedClinic.longitude) {
         map.flyTo([selectedClinic.latitude, selectedClinic.longitude], 15, { animate: true, duration: 0.6 });
       } else if (searchedLocation && searchedLocation.latitude && searchedLocation.longitude) {

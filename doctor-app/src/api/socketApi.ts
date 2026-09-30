@@ -10,12 +10,16 @@ export const initDoctorSocket = (
     onQueueUpdated?: (data: any) => void;
     onAppointmentStatus?: (data: any) => void;
     onAppointmentCreated?: (data: any) => void;
+    onAppointmentCancelled?: (data: any) => void;
     onAvailabilityChanged?: (data: any) => void;
     onDelayUpdated?: (data: any) => void;
     onNotification?: (data: any) => void;
     onAvailabilityRequestNew?: (data: any) => void;
     onAvailabilityRequestApproved?: (data: any) => void;
     onAvailabilityRequestRejected?: (data: any) => void;
+    onAvailabilityRequestCleared?: (data: any) => void;
+    onDemoReset?: (data: any) => void;
+    onStatusUpdated?: (data: any) => void;
   }
 ): Socket => {
   if (socket) {
@@ -41,16 +45,26 @@ export const initDoctorSocket = (
     }
   });
 
+  if (callbacks?.onAppointmentCancelled) {
+    socket.on('appointment:cancelled', callbacks.onAppointmentCancelled);
+  }
+
   if (callbacks?.onQueueUpdated) {
     socket.on('queue:updated', callbacks.onQueueUpdated);
     socket.on('queue:completed', callbacks.onQueueUpdated);
-    socket.on('appointment:cancelled', callbacks.onQueueUpdated);
+    if (!callbacks.onAppointmentCancelled) {
+      socket.on('appointment:cancelled', callbacks.onQueueUpdated);
+    }
     socket.on('appointment:rescheduled', callbacks.onQueueUpdated);
   }
 
   if (callbacks?.onAppointmentStatus) {
     socket.on('appointment:status', callbacks.onAppointmentStatus);
-    socket.on('appointment:cancelled', callbacks.onAppointmentStatus);
+    socket.on('appointment:updated', callbacks.onAppointmentStatus);
+    socket.on('consultation:completed', callbacks.onAppointmentStatus);
+    if (!callbacks.onAppointmentCancelled) {
+      socket.on('appointment:cancelled', callbacks.onAppointmentStatus);
+    }
     socket.on('appointment:rescheduled', callbacks.onAppointmentStatus);
   }
 
@@ -81,6 +95,18 @@ export const initDoctorSocket = (
 
   if (callbacks?.onAvailabilityRequestRejected) {
     socket.on('availability_request:rejected', callbacks.onAvailabilityRequestRejected);
+  }
+
+  if (callbacks?.onAvailabilityRequestCleared) {
+    socket.on('availability_request:cleared', callbacks.onAvailabilityRequestCleared);
+  }
+
+  if (callbacks?.onDemoReset) {
+    socket.on('demo:reset', callbacks.onDemoReset);
+  }
+
+  if (callbacks?.onStatusUpdated) {
+    socket.on('doctor:status_updated', callbacks.onStatusUpdated);
   }
 
   socket.on('disconnect', () => {

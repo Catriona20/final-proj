@@ -49,6 +49,7 @@ availabilityRouter.post('/requests', async (req: Request, res: Response): Promis
       doctorId,
       specialty,
       requested_date,
+      requestedDate,
       date,
       start_time,
       startTime,
@@ -61,18 +62,19 @@ availabilityRouter.post('/requests', async (req: Request, res: Response): Promis
 
     const rawClinicId = clinic_id || clinicId;
     const rawDoctorId = doctor_id || doctorId;
-    const reqDate = requested_date || date;
+    const rawDate = requested_date || date || requestedDate;
     const reqStartTime = start_time || startTime;
     const reqEndTime = end_time || endTime;
 
-    if (!rawClinicId || !rawDoctorId || !reqDate || !reqStartTime || !reqEndTime) {
+    if (!rawClinicId || !rawDoctorId || !rawDate || !reqStartTime || !reqEndTime) {
       res.status(400).json({
         success: false,
-        error: 'clinic_id, doctor_id, requested_date, start_time, and end_time are required.',
+        error: 'clinic_id, doctor_id, date/requested_date, start_time, and end_time are required.',
       });
       return;
     }
 
+    const reqDate = timeService.normalizeDateString(rawDate);
     const cId = resolveCanonicalClinicId(rawClinicId);
     const dId = resolveCanonicalDoctorId(rawDoctorId);
 
@@ -94,12 +96,31 @@ availabilityRouter.post('/requests', async (req: Request, res: Response): Promis
       await DoctorClinicAssignmentModel.assign(dId, cId, specialty || doctor.specialization || 'General Medicine');
     }
 
+    // Interval conflict checking: only reject if same doctor, same clinic, same date, and overlapping intervals
+    const conflictCheck = await AvailabilityRequestModel.hasScheduleConflict(
+      dId,
+      cId,
+      reqDate,
+      reqStartTime,
+      reqEndTime
+    );
+
+    if (conflictCheck.conflict) {
+      res.status(409).json({
+        success: false,
+        error: conflictCheck.reason || 'Schedule conflict: Doctor already has an active schedule overlapping with this window.',
+        conflictingRequest: conflictCheck.conflictingRequest,
+      });
+      return;
+    }
+
     const request = await AvailabilityRequestModel.create({
       clinic_id: cId,
       clinic_name: clinic.name,
       doctor_id: dId,
       doctor_name: doctor.name,
       specialty: specialty || doctor.specialization || 'General Medicine',
+      date: reqDate,
       requested_date: reqDate,
       start_time: reqStartTime,
       end_time: reqEndTime,
@@ -107,14 +128,38 @@ availabilityRouter.post('/requests', async (req: Request, res: Response): Promis
       requested_by,
     });
 
+    const fullPayload = {
+      ...request,
+      id: request.id,
+      clinic_id: cId,
+      clinicId: cId,
+      clinic_name: clinic.name,
+      clinicName: clinic.name,
+      doctor_id: dId,
+      doctorId: dId,
+      doctor_name: doctor.name,
+      doctorName: doctor.name,
+      specialty: request.specialty,
+      date: reqDate,
+      requested_date: reqDate,
+      start_time: reqStartTime,
+      startTime: reqStartTime,
+      end_time: reqEndTime,
+      endTime: reqEndTime,
+      status: request.status,
+      notes: request.notes,
+      created_at: request.created_at,
+      updated_at: request.updated_at,
+    };
+
     // Real-time notification emission: strictly target the requested doctor and the creating clinic
-    emitToDoctor(dId, 'availability_request:new', request);
-    emitToClinic(cId, 'availability_request:new', request);
+    emitToDoctor(dId, 'availability_request:new', fullPayload);
+    emitToClinic(cId, 'availability_request:new', fullPayload);
 
     res.status(201).json({
       success: true,
       message: 'Availability request submitted successfully.',
-      request,
+      request: fullPayload,
     });
   } catch (err: any) {
     console.error('Error creating availability request:', err);
@@ -127,6 +172,7 @@ availabilityRouter.get('/requests', async (req: Request, res: Response): Promise
   try {
     const rawDoctorId = (req.query.doctorId as string) || (req.query.doctor_id as string);
     const rawClinicId = (req.query.clinicId as string) || (req.query.clinic_id as string);
+    const rawDate = (req.query.date as string) || (req.query.requested_date as string);
     const status = req.query.status as any;
 
     const authDoctorId = getAuthenticatedDoctorId(req);
@@ -141,17 +187,34 @@ availabilityRouter.get('/requests', async (req: Request, res: Response): Promise
     }
 
     const effectiveClinicId = rawClinicId ? resolveCanonicalClinicId(rawClinicId) : undefined;
+    const filterDate = rawDate ? timeService.normalizeDateString(rawDate) : undefined;
 
     const requests = await AvailabilityRequestModel.getRequests({
       doctorId: effectiveDoctorId,
       clinicId: effectiveClinicId,
       status,
+      date: filterDate,
+    });
+
+    const formattedRequests = requests.map((r) => {
+      const canonicalDate = timeService.normalizeDateString(r.date || r.requested_date);
+      return {
+        ...r,
+        date: canonicalDate,
+        requested_date: canonicalDate,
+        clinicId: r.clinic_id,
+        doctorId: r.doctor_id,
+        clinicName: r.clinic_name,
+        doctorName: r.doctor_name,
+        startTime: r.start_time,
+        endTime: r.end_time,
+      };
     });
 
     res.status(200).json({
       success: true,
-      count: requests.length,
-      requests,
+      count: formattedRequests.length,
+      requests: formattedRequests,
     });
   } catch (err: any) {
     console.error('Error fetching availability requests:', err);
@@ -180,7 +243,20 @@ availabilityRouter.get('/requests/:id', async (req: Request, res: Response): Pro
       }
     }
 
-    res.status(200).json({ success: true, request });
+    const canonicalDate = timeService.normalizeDateString(request.date || request.requested_date);
+    const formattedRequest = {
+      ...request,
+      date: canonicalDate,
+      requested_date: canonicalDate,
+      clinicId: request.clinic_id,
+      doctorId: request.doctor_id,
+      clinicName: request.clinic_name,
+      doctorName: request.doctor_name,
+      startTime: request.start_time,
+      endTime: request.end_time,
+    };
+
+    res.status(200).json({ success: true, request: formattedRequest });
   } catch (err: any) {
     res.status(500).json({ success: false, error: 'Failed to fetch availability request.' });
   }
@@ -214,6 +290,7 @@ availabilityRouter.post('/requests/:id/approve', async (req: Request, res: Respo
       return;
     }
 
+    const canonicalReqDate = timeService.normalizeDateString(request.date || request.requested_date);
     const { notes } = req.body || {};
     const updated = await AvailabilityRequestModel.updateStatus(request.id, 'APPROVED', notes);
     if (!updated) {
@@ -221,43 +298,90 @@ availabilityRouter.post('/requests/:id/approve', async (req: Request, res: Respo
       return;
     }
 
+    updated.date = canonicalReqDate;
+    updated.requested_date = canonicalReqDate;
+
     // Ensure doctor-clinic assignment is active
     await DoctorClinicAssignmentModel.assign(updated.doctor_id, updated.clinic_id, updated.specialty);
 
     // Generate active slots for the approved window
     const slotsResult = await doctorAvailabilityService.generateDoctorSlots(
       updated.doctor_id,
-      updated.requested_date,
+      canonicalReqDate,
       updated.clinic_id
     );
 
+    const fullPayload = {
+      ...updated,
+      id: updated.id,
+      clinic_id: updated.clinic_id,
+      clinicId: updated.clinic_id,
+      clinic_name: updated.clinic_name,
+      clinicName: updated.clinic_name,
+      doctor_id: updated.doctor_id,
+      doctorId: updated.doctor_id,
+      doctor_name: updated.doctor_name,
+      doctorName: updated.doctor_name,
+      specialty: updated.specialty,
+      date: canonicalReqDate,
+      requested_date: canonicalReqDate,
+      start_time: updated.start_time,
+      startTime: updated.start_time,
+      end_time: updated.end_time,
+      endTime: updated.end_time,
+      status: 'APPROVED',
+      notes: updated.notes,
+      response_notes: updated.response_notes,
+      updated_at: updated.updated_at,
+    };
+
     // Socket.IO notifications: strictly target this doctor and clinic
-    emitToDoctor(updated.doctor_id, 'availability_request:approved', updated);
-    emitToClinic(updated.clinic_id, 'availability_request:approved', updated);
+    emitToDoctor(updated.doctor_id, 'availability_request:approved', fullPayload);
+    emitToClinic(updated.clinic_id, 'availability_request:approved', fullPayload);
 
     // General calendar / slot availability broadcasts for patient app
     emitBroadcast('doctor:availability_updated', {
+      requestId: updated.id,
+      request_id: updated.id,
       doctor_id: updated.doctor_id,
+      doctorId: updated.doctor_id,
       clinic_id: updated.clinic_id,
+      clinicId: updated.clinic_id,
       status: 'AVAILABLE',
-      date: updated.requested_date,
+      date: canonicalReqDate,
+      startTime: updated.start_time,
+      endTime: updated.end_time,
     });
     emitBroadcast('clinic:schedule_updated', {
+      requestId: updated.id,
+      request_id: updated.id,
       clinic_id: updated.clinic_id,
+      clinicId: updated.clinic_id,
       doctor_id: updated.doctor_id,
-      date: updated.requested_date,
+      doctorId: updated.doctor_id,
+      date: canonicalReqDate,
+      startTime: updated.start_time,
+      endTime: updated.end_time,
+      status: 'AVAILABLE',
     });
     emitBroadcast('appointment:slot_activated', {
+      requestId: updated.id,
+      request_id: updated.id,
       clinic_id: updated.clinic_id,
+      clinicId: updated.clinic_id,
       doctor_id: updated.doctor_id,
-      date: updated.requested_date,
+      doctorId: updated.doctor_id,
+      date: canonicalReqDate,
+      startTime: updated.start_time,
+      endTime: updated.end_time,
+      status: 'AVAILABLE',
       slots: slotsResult.slots,
     });
 
     res.status(200).json({
       success: true,
       message: 'Doctor availability approved and schedule activated.',
-      request: updated,
+      request: fullPayload,
       slots: slotsResult.slots,
     });
   } catch (err: any) {
@@ -294,6 +418,7 @@ availabilityRouter.post('/requests/:id/reject', async (req: Request, res: Respon
       return;
     }
 
+    const canonicalReqDate = timeService.normalizeDateString(request.date || request.requested_date);
     const { reason, notes } = req.body || {};
     const updated = await AvailabilityRequestModel.updateStatus(request.id, 'REJECTED', reason || notes);
     if (!updated) {
@@ -301,21 +426,67 @@ availabilityRouter.post('/requests/:id/reject', async (req: Request, res: Respon
       return;
     }
 
+    updated.date = canonicalReqDate;
+    updated.requested_date = canonicalReqDate;
+
+    const fullPayload = {
+      ...updated,
+      id: updated.id,
+      clinic_id: updated.clinic_id,
+      clinicId: updated.clinic_id,
+      clinic_name: updated.clinic_name,
+      clinicName: updated.clinic_name,
+      doctor_id: updated.doctor_id,
+      doctorId: updated.doctor_id,
+      doctor_name: updated.doctor_name,
+      doctorName: updated.doctor_name,
+      specialty: updated.specialty,
+      date: canonicalReqDate,
+      requested_date: canonicalReqDate,
+      start_time: updated.start_time,
+      startTime: updated.start_time,
+      end_time: updated.end_time,
+      endTime: updated.end_time,
+      status: 'REJECTED',
+      notes: updated.notes,
+      response_notes: updated.response_notes,
+      updated_at: updated.updated_at,
+    };
+
     // Socket.IO notifications: strictly target this doctor and clinic
-    emitToDoctor(updated.doctor_id, 'availability_request:rejected', updated);
-    emitToClinic(updated.clinic_id, 'availability_request:rejected', updated);
+    emitToDoctor(updated.doctor_id, 'availability_request:rejected', fullPayload);
+    emitToClinic(updated.clinic_id, 'availability_request:rejected', fullPayload);
 
     emitBroadcast('doctor:availability_updated', {
+      requestId: updated.id,
+      request_id: updated.id,
       doctor_id: updated.doctor_id,
+      doctorId: updated.doctor_id,
       clinic_id: updated.clinic_id,
+      clinicId: updated.clinic_id,
       status: 'UNAVAILABLE',
-      date: updated.requested_date,
+      date: canonicalReqDate,
+      startTime: updated.start_time,
+      endTime: updated.end_time,
+    });
+    emitBroadcast('appointment:slot_activated', {
+      requestId: updated.id,
+      request_id: updated.id,
+      clinic_id: updated.clinic_id,
+      clinicId: updated.clinic_id,
+      doctor_id: updated.doctor_id,
+      doctorId: updated.doctor_id,
+      date: canonicalReqDate,
+      startTime: updated.start_time,
+      endTime: updated.end_time,
+      status: 'UNAVAILABLE',
+      slots: { morning: [], afternoon: [], evening: [] },
     });
 
     res.status(200).json({
       success: true,
       message: 'Doctor availability request rejected.',
-      request: updated,
+      request: fullPayload,
     });
   } catch (err: any) {
     console.error('Error rejecting availability request:', err);

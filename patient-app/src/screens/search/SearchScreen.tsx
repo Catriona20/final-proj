@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   StatusBar,
   TextInput,
+  Platform,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -27,6 +28,7 @@ import {
   Navigation,
   Sparkles,
   AlertTriangle,
+  ArrowUp,
 } from 'lucide-react-native';
 import { AppStackParamList, MainTabParamList, Clinic, FilterOptions } from '../../types';
 import { SPACING, RADIUS, SHADOWS, TYPOGRAPHY, getThemeColors } from '../../constants/theme';
@@ -88,6 +90,7 @@ export const SearchScreen: React.FC = () => {
   // AI-Assisted Symptom Guidance State
   const [symptomInput, setSymptomInput] = useState('');
   const [isAnalyzingSymptoms, setIsAnalyzingSymptoms] = useState(false);
+  const [isSymptomFocused, setIsSymptomFocused] = useState(false);
   const [symptomResult, setSymptomResult] = useState<{
     recommended_department: string;
     confidence: number;
@@ -181,18 +184,35 @@ export const SearchScreen: React.FC = () => {
 
     let filtered = result.clinics;
 
-    // Apply Sorting
-    if (sortMode === 'nearest') {
-      filtered = [...filtered].sort((a, b) => (a.distanceMeters ?? 99999) - (b.distanceMeters ?? 99999));
-    } else if (sortMode === 'fastest') {
-      filtered = [...filtered].sort(
-        (a, b) => (a.travelDurationSeconds ?? 99999) - (b.travelDurationSeconds ?? 99999)
-      );
-    } else {
-      filtered = [...filtered].sort(
-        (a, b) => (b.recommendationScore ?? 0) - (a.recommendationScore ?? 0)
-      );
-    }
+    // Apply 2-Tier Sorting (Tier 1 Demo Clinics first, Tier 2 External Clinics second)
+    const isDemo = (c: any) => Boolean(
+      c.source === 'platform' ||
+      c.source === 'MEDLINK_DEMO' ||
+      c.isConnected ||
+      (typeof c.id === 'string' && c.id.startsWith('c-demo')) ||
+      c.id === 'c5' ||
+      c.id === 'c1' ||
+      c.is_demo === true ||
+      c.doctorsCount > 0
+    );
+
+    const demoClinics = filtered.filter(isDemo);
+    const externalClinics = filtered.filter((c) => !isDemo(c));
+
+    const sortFn = (a: any, b: any) => {
+      if (sortMode === 'nearest') {
+        return (a.distanceMeters ?? 99999) - (b.distanceMeters ?? 99999);
+      } else if (sortMode === 'fastest') {
+        return (a.travelDurationSeconds ?? 99999) - (b.travelDurationSeconds ?? 99999);
+      } else {
+        return (b.recommendationScore ?? 0) - (a.recommendationScore ?? 0);
+      }
+    };
+
+    demoClinics.sort(sortFn);
+    externalClinics.sort(sortFn);
+
+    filtered = [...demoClinics, ...externalClinics];
 
     setResults(filtered);
     setIsLoading(false);
@@ -221,6 +241,103 @@ export const SearchScreen: React.FC = () => {
     (filters.openNow ? 1 : 0) +
     (filters.minRating > 0 ? 1 : 0) +
     (filters.distance !== 10 ? 1 : 0);
+
+  const isDemoClinic = (c: Clinic) =>
+    c.source === 'platform' ||
+    c.id?.startsWith('c-demo') ||
+    c.id === 'c5' ||
+    c.id === 'c1' ||
+    c.doctorsCount > 0;
+
+  const activeMapClinic =
+    selectedMapClinic && results.some((c) => c.id === selectedMapClinic.id)
+      ? selectedMapClinic
+      : results[0] || null;
+
+  const renderCard = (clinic: Clinic, isDemo: boolean, isMapMode: boolean = false) => (
+    <TouchableOpacity
+      key={clinic.id}
+      style={[
+        styles.resultCard,
+        { backgroundColor: theme.card, borderColor: isDemo ? theme.primary : theme.cardBorder },
+        isMapMode && styles.resultCardMapMode,
+      ]}
+      onPress={() => navigation.navigate('ClinicDetail', { clinicId: clinic.id })}
+      activeOpacity={0.9}
+    >
+      <Image source={{ uri: clinic.image }} style={[styles.resultImage, isMapMode && styles.resultImageMapMode]} />
+
+      <View style={[styles.resultContent, isMapMode && styles.resultContentMapMode]}>
+        <View style={styles.resultHeaderRow}>
+          <View style={[styles.catBadge, { backgroundColor: theme.primaryLight }]}>
+            <Text style={[styles.catBadgeText, { color: theme.primary }]}>{clinic.category}</Text>
+          </View>
+          <View style={styles.ratingBox}>
+            <Star size={11} color="#F59E0B" fill="#F59E0B" />
+            <Text style={[styles.ratingText, { color: theme.textPrimary }]}> {clinic.rating}</Text>
+          </View>
+        </View>
+
+        <Text style={[styles.clinicName, { color: theme.textPrimary }]} numberOfLines={1}>
+          {clinic.name}
+        </Text>
+        <Text style={[styles.clinicAddress, { color: theme.textMuted }]} numberOfLines={1}>
+          📍 {clinic.address}
+        </Text>
+
+        <View style={[styles.metricsRow, { backgroundColor: theme.backgroundSoft, borderColor: theme.cardBorder }]}>
+          <Text style={[styles.metricText, { color: theme.textPrimary }]}>
+            🚗 {clinic.travelTime ? `${clinic.distance} • ${clinic.travelTime}` : clinic.distance}
+          </Text>
+          <View
+            style={[
+              styles.statusDot,
+              { backgroundColor: clinic.isOpen ? theme.success : theme.error },
+            ]}
+          />
+          <Text style={[styles.statusText, { color: clinic.isOpen ? theme.success : theme.error }]}>
+            {clinic.isOpen ? 'Open Now' : 'Closed'}
+          </Text>
+        </View>
+
+        {clinic.recommendationReason ? (
+          <View style={[styles.reasonBadge, { backgroundColor: isDark ? '#0C2347' : '#EEF4FF', borderColor: isDark ? '#1E3A8A' : '#BFDBFE' }]}>
+            <Sparkles size={11} color={theme.primary} />
+            <Text style={[styles.reasonText, { color: isDark ? '#93C5FD' : '#1E40AF' }]} numberOfLines={1}>
+              {clinic.recommendationReason}
+            </Text>
+          </View>
+        ) : null}
+
+        {clinic.doctorsCount > 0 ? (
+          <Text style={[styles.docCountLabel, { color: theme.primary }]}>
+            ✓ {clinic.doctorsCount} verified doctor{clinic.doctorsCount === 1 ? '' : 's'} registered
+          </Text>
+        ) : (
+          <Text style={[styles.docCountLabel, { color: theme.textMuted }]}>
+            External clinic partner (Google Places)
+          </Text>
+        )}
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.viewBtn, { borderColor: theme.cardBorder, backgroundColor: theme.backgroundSoft }]}
+            onPress={() => navigation.navigate('ClinicDetail', { clinicId: clinic.id })}
+          >
+            <Text style={[styles.viewBtnText, { color: theme.textPrimary }]}>View Clinic</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.bookBtn, { backgroundColor: theme.cta }]}
+            onPress={() => handleBookClinic(clinic)}
+          >
+            <Text style={styles.bookBtnText}>
+              {clinic.isConnected !== false ? 'Book Visit' : 'Book Appointment'}
+            </Text>
+            <ChevronRight size={14} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
@@ -359,31 +476,16 @@ export const SearchScreen: React.FC = () => {
         <View style={styles.mapContainer}>
           <InteractiveMap
             clinics={results}
-            selectedClinicId={selectedMapClinic?.id ?? null}
+            selectedClinicId={activeMapClinic?.id ?? null}
             onSelectClinic={(c) => setSelectedMapClinic(c)}
             centerCoords={{ latitude: activeLocation.latitude, longitude: activeLocation.longitude }}
             searchedLocation={activeLocation.type === 'manual' ? { name: activeLocation.name, latitude: activeLocation.latitude, longitude: activeLocation.longitude } : null}
           />
 
-          {/* Selected Clinic Map Card Bottom */}
-          {selectedMapClinic && (
-            <View style={[styles.mapBottomCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <Image source={{ uri: selectedMapClinic.image }} style={styles.mapCardImage} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={[styles.mapCardCat, { color: theme.primary }]}>{selectedMapClinic.category}</Text>
-                <Text style={[styles.mapCardName, { color: theme.textPrimary }]} numberOfLines={1}>
-                  {selectedMapClinic.name}
-                </Text>
-                <Text style={[styles.mapCardMeta, { color: theme.textSecondary }]}>
-                  ⭐ {selectedMapClinic.rating} • 🚗 {selectedMapClinic.travelTime || selectedMapClinic.distance}
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.mapCardBtn, { backgroundColor: theme.cta }]}
-                onPress={() => navigation.navigate('ClinicDetail', { clinicId: selectedMapClinic.id })}
-              >
-                <Text style={styles.mapCardBtnText}>View</Text>
-              </TouchableOpacity>
+          {/* Selected Clinic Map Card Floating Above Map */}
+          {activeMapClinic && (
+            <View style={styles.mapCardFloatingContainer} pointerEvents="box-none">
+              {renderCard(activeMapClinic, isDemoClinic(activeMapClinic), true)}
             </View>
           )}
         </View>
@@ -405,43 +507,87 @@ export const SearchScreen: React.FC = () => {
               </View>
             </View>
 
-            <View style={[styles.symptomInputContainer, { backgroundColor: theme.backgroundSoft, borderColor: theme.cardBorder }]}>
-              <TextInput
-                style={[styles.symptomTextInput, { color: theme.textPrimary }]}
-                placeholder="Describe your symptoms (e.g., severe tooth pain, fever)..."
-                placeholderTextColor={theme.textMuted}
-                value={symptomInput}
-                onChangeText={(text) => {
-                  setSymptomInput(text);
-                  if (symptomError) setSymptomError(null);
-                }}
-                multiline={true}
-                numberOfLines={2}
-                editable={!isAnalyzingSymptoms}
-                autoCapitalize="sentences"
-                autoCorrect={true}
-                accessibilityLabel="Symptom Description Input"
-              />
-            </View>
+            <View
+              style={[
+                styles.symptomInputBar,
+                {
+                  backgroundColor: theme.backgroundSoft,
+                  borderColor: isSymptomFocused ? theme.primary : theme.cardBorder,
+                },
+              ]}
+            >
+              <Sparkles size={16} color={theme.primary} style={styles.symptomSparkleIcon} />
 
-            <View style={styles.symptomActionRow}>
+              {isAnalyzingSymptoms ? (
+                <View style={styles.symptomLoadingContainer}>
+                  <ActivityIndicator size="small" color={theme.primary} />
+                  <Text style={[styles.symptomLoadingText, { color: theme.textMuted }]}>
+                    Analyzing symptoms...
+                  </Text>
+                </View>
+              ) : (
+                <TextInput
+                  style={[
+                    styles.symptomCompactInput,
+                    { color: theme.textPrimary },
+                    Platform.OS === 'web' && ({ outlineStyle: 'none' } as any),
+                  ]}
+                  placeholder="Tell us what you're experiencing..."
+                  placeholderTextColor={theme.textMuted}
+                  value={symptomInput}
+                  onChangeText={(text) => {
+                    setSymptomInput(text);
+                    if (symptomError) setSymptomError(null);
+                  }}
+                  onFocus={() => setIsSymptomFocused(true)}
+                  onBlur={() => setIsSymptomFocused(false)}
+                  multiline={true}
+                  numberOfLines={1}
+                  editable={!isAnalyzingSymptoms}
+                  autoCapitalize="sentences"
+                  autoCorrect={true}
+                  returnKeyType="send"
+                  onSubmitEditing={handleAnalyzeSymptoms}
+                  onKeyPress={(e: any) => {
+                    if (Platform.OS === 'web' && e.nativeEvent?.key === 'Enter' && !e.nativeEvent?.shiftKey) {
+                      e.preventDefault?.();
+                      handleAnalyzeSymptoms();
+                    }
+                  }}
+                  accessibilityLabel="Symptom Description Input"
+                />
+              )}
+
               <TouchableOpacity
                 style={[
-                  styles.symptomAnalyzeBtn,
-                  { backgroundColor: theme.primary, opacity: isAnalyzingSymptoms ? 0.7 : 1 },
+                  styles.symptomSendBtn,
+                  {
+                    backgroundColor:
+                      symptomInput.trim().length > 0 && !isAnalyzingSymptoms
+                        ? theme.primary
+                        : isDark
+                        ? '#334155'
+                        : '#E2E8F0',
+                  },
                 ]}
                 onPress={handleAnalyzeSymptoms}
-                disabled={isAnalyzingSymptoms}
-                activeOpacity={0.85}
+                disabled={isAnalyzingSymptoms || !symptomInput.trim()}
+                activeOpacity={0.8}
                 accessibilityLabel="Analyze Symptoms"
               >
                 {isAnalyzingSymptoms ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <>
-                    <Sparkles size={14} color="#FFFFFF" />
-                    <Text style={styles.symptomAnalyzeBtnText}>Analyze Symptoms</Text>
-                  </>
+                  <ArrowUp
+                    size={16}
+                    color={
+                      symptomInput.trim().length > 0
+                        ? '#FFFFFF'
+                        : isDark
+                        ? '#64748B'
+                        : '#94A3B8'
+                    }
+                  />
                 )}
               </TouchableOpacity>
             </View>
@@ -526,9 +672,9 @@ export const SearchScreen: React.FC = () => {
             </View>
           ) : results.length === 0 ? (
             <View style={[styles.emptyBox, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No clinics found</Text>
+              <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No matching clinics found nearby</Text>
               <Text style={[styles.emptyDesc, { color: theme.textMuted }]}>
-                No medical clinics matched "{query || filters.specialization}" within {filters.distance} km of {activeLocation.name}.
+                No {filters.specialization ? `${filters.specialization} ` : 'medical '}clinics matched your query within {filters.distance} km of {activeLocation.name}.
               </Text>
               <TouchableOpacity
                 style={[styles.expandRadiusBtn, { backgroundColor: theme.primary }]}
@@ -540,100 +686,12 @@ export const SearchScreen: React.FC = () => {
           ) : (
             <View style={styles.resultsList}>
               <Text style={[styles.resultsCountText, { color: theme.textMuted }]}>
-                Showing {results.length} healthcare center{results.length === 1 ? '' : 's'} near {activeLocation.name}
+                Showing {results.length} {filters.specialization ? `${filters.specialization} ` : ''}center{results.length === 1 ? '' : 's'} near {activeLocation.name}
               </Text>
 
               {(() => {
-                const isDemoClinic = (c: Clinic) =>
-                  c.source === 'platform' ||
-                  c.id?.startsWith('c-demo') ||
-                  c.id === 'c5' ||
-                  c.id === 'c1' ||
-                  c.doctorsCount > 0;
-
                 const demoClinics = results.filter(isDemoClinic);
                 const externalClinics = results.filter((c) => !isDemoClinic(c));
-
-                const renderCard = (clinic: Clinic, isDemo: boolean) => (
-                  <TouchableOpacity
-                    key={clinic.id}
-                    style={[styles.resultCard, { backgroundColor: theme.card, borderColor: isDemo ? theme.primary : theme.cardBorder }]}
-                    onPress={() => navigation.navigate('ClinicDetail', { clinicId: clinic.id })}
-                    activeOpacity={0.9}
-                  >
-                    <Image source={{ uri: clinic.image }} style={styles.resultImage} />
-
-                    <View style={styles.resultContent}>
-                      <View style={styles.resultHeaderRow}>
-                        <View style={[styles.catBadge, { backgroundColor: theme.primaryLight }]}>
-                          <Text style={[styles.catBadgeText, { color: theme.primary }]}>{clinic.category}</Text>
-                        </View>
-                        <View style={styles.ratingBox}>
-                          <Star size={11} color="#F59E0B" fill="#F59E0B" />
-                          <Text style={[styles.ratingText, { color: theme.textPrimary }]}> {clinic.rating}</Text>
-                        </View>
-                      </View>
-
-                      <Text style={[styles.clinicName, { color: theme.textPrimary }]} numberOfLines={1}>
-                        {clinic.name}
-                      </Text>
-                      <Text style={[styles.clinicAddress, { color: theme.textMuted }]} numberOfLines={1}>
-                        📍 {clinic.address}
-                      </Text>
-
-                      <View style={[styles.metricsRow, { backgroundColor: theme.backgroundSoft, borderColor: theme.cardBorder }]}>
-                        <Text style={[styles.metricText, { color: theme.textPrimary }]}>
-                          🚗 {clinic.travelTime ? `${clinic.distance} • ${clinic.travelTime}` : clinic.distance}
-                        </Text>
-                        <View
-                          style={[
-                            styles.statusDot,
-                            { backgroundColor: clinic.isOpen ? theme.success : theme.error },
-                          ]}
-                        />
-                        <Text style={[styles.statusText, { color: clinic.isOpen ? theme.success : theme.error }]}>
-                          {clinic.isOpen ? 'Open Now' : 'Closed'}
-                        </Text>
-                      </View>
-
-                      {clinic.recommendationReason ? (
-                        <View style={[styles.reasonBadge, { backgroundColor: isDark ? '#0C2347' : '#EEF4FF', borderColor: isDark ? '#1E3A8A' : '#BFDBFE' }]}>
-                          <Sparkles size={11} color={theme.primary} />
-                          <Text style={[styles.reasonText, { color: isDark ? '#93C5FD' : '#1E40AF' }]} numberOfLines={1}>
-                            {clinic.recommendationReason}
-                          </Text>
-                        </View>
-                      ) : null}
-
-                      {clinic.doctorsCount > 0 ? (
-                        <Text style={[styles.docCountLabel, { color: theme.primary }]}>
-                          ✓ {clinic.doctorsCount} verified doctor{clinic.doctorsCount === 1 ? '' : 's'} registered
-                        </Text>
-                      ) : (
-                        <Text style={[styles.docCountLabel, { color: theme.textMuted }]}>
-                          External clinic partner (Google Places)
-                        </Text>
-                      )}
-                      <View style={styles.actionRow}>
-                        <TouchableOpacity
-                          style={[styles.viewBtn, { borderColor: theme.cardBorder, backgroundColor: theme.backgroundSoft }]}
-                          onPress={() => navigation.navigate('ClinicDetail', { clinicId: clinic.id })}
-                        >
-                          <Text style={[styles.viewBtnText, { color: theme.textPrimary }]}>View Clinic</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.bookBtn, { backgroundColor: theme.cta }]}
-                          onPress={() => handleBookClinic(clinic)}
-                        >
-                          <Text style={styles.bookBtnText}>
-                            {clinic.isConnected !== false ? 'Book Visit' : 'Book Appointment'}
-                          </Text>
-                          <ChevronRight size={14} color="#FFFFFF" />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
 
                 return (
                   <View style={{ gap: 18 }}>
@@ -654,7 +712,7 @@ export const SearchScreen: React.FC = () => {
                             </Text>
                           </View>
                         </View>
-                        {demoClinics.map((c) => renderCard(c, true))}
+                        {demoClinics.map((c) => renderCard(c, true, false))}
                       </View>
                     )}
 
@@ -675,7 +733,7 @@ export const SearchScreen: React.FC = () => {
                             </Text>
                           </View>
                         </View>
-                        {externalClinics.map((c) => renderCard(c, false))}
+                        {externalClinics.map((c) => renderCard(c, false, false))}
                       </View>
                     )}
                   </View>
@@ -833,46 +891,29 @@ const styles = StyleSheet.create({
   mapContainer: {
     flex: 1,
     position: 'relative',
+    overflow: 'hidden',
   },
-  mapBottomCard: {
+  mapCardFloatingContainer: {
     position: 'absolute',
-    bottom: SPACING.lg,
-    left: SPACING.lg,
-    right: SPACING.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    padding: SPACING.md,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1.5,
+    bottom: 76,
+    left: SPACING.md,
+    right: SPACING.md,
+    maxWidth: 440,
+    marginHorizontal: 'auto' as any,
+    zIndex: 1050,
+    elevation: 20,
+  },
+  resultCardMapMode: {
     ...SHADOWS.float,
   },
-  mapCardImage: {
-    width: 56,
-    height: 56,
-    borderRadius: RADIUS.lg,
+  resultImageMapMode: {
+    height: 85,
   },
-  mapCardCat: {
-    fontSize: 9,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  mapCardName: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  mapCardMeta: {
-    fontSize: 10,
-  },
-  mapCardBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: RADIUS.full,
-  },
-  mapCardBtnText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
+  resultContentMapMode: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: 8,
+    paddingBottom: 10,
+    gap: 2,
   },
   resultsScroll: {
     padding: SPACING.lg,
@@ -1046,7 +1087,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...SHADOWS.float,
-    zIndex: 999,
+    zIndex: 1150,
+    elevation: 22,
   },
   symptomGuidanceCard: {
     marginHorizontal: SPACING.md,
@@ -1078,34 +1120,46 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
-  symptomInputContainer: {
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    padding: SPACING.sm,
-    marginBottom: SPACING.xs,
-  },
-  symptomTextInput: {
-    fontSize: 13,
-    minHeight: 44,
-    textAlignVertical: 'top',
-  },
-  symptomActionRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 4,
-  },
-  symptomAnalyzeBtn: {
+  symptomInputBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
     borderRadius: RADIUS.full,
+    borderWidth: 1.5,
+    paddingLeft: 12,
+    paddingRight: 6,
+    paddingVertical: 4,
+    minHeight: 46,
+    gap: 8,
   },
-  symptomAnalyzeBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+  symptomSparkleIcon: {
+    marginRight: 2,
+  },
+  symptomCompactInput: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '400',
+    paddingVertical: Platform.OS === 'web' ? 8 : 4,
+    paddingHorizontal: 0,
+    maxHeight: 64,
+  },
+  symptomLoadingContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+  },
+  symptomLoadingText: {
+    fontSize: 13,
+    fontWeight: '500',
+    fontStyle: 'italic',
+  },
+  symptomSendBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   symptomAlertBox: {
     flexDirection: 'row',

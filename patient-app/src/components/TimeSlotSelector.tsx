@@ -123,10 +123,10 @@ export const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
           ]}
         >
           <Text style={[styles.emptyText, { color: theme.textPrimary }]}>
-            No confirmed doctor availability for this time.
+            No confirmed doctor availability for this date.
           </Text>
           <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
-            Doctor availability has not yet been confirmed by the clinic. Please check back once availability is approved or select another date.
+            Doctor availability has not yet been confirmed by the clinic for this date. Please check back once availability is approved or select another date.
           </Text>
         </View>
       )}

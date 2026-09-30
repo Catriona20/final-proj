@@ -53,22 +53,20 @@ const bookAppointmentHandler = async (req: Request, res: Response): Promise<void
       }
     }
 
-    const {
-      doctorId,
-      clinicId,
-      department,
-      date,
-      time,
-      reason = 'General consultation',
-      customReasonText,
-      symptoms = [],
-      uploadedFiles = [],
-      notes,
-      expectedDuration = '20 min',
-      consultationFee,
-    } = req.body;
+    const doctorId = req.body.doctorId || req.body.doctor_id;
+    const clinicId = req.body.clinicId || req.body.clinic_id;
+    const department = req.body.department;
+    const date = req.body.date || req.body.appointment_date || req.body.appointmentDate;
+    const time = req.body.time || req.body.slot_time || req.body.slotTime;
+    const reason = req.body.reason || 'General consultation';
+    const customReasonText = req.body.customReasonText;
+    const symptoms = req.body.symptoms || [];
+    const uploadedFiles = req.body.uploadedFiles || [];
+    const notes = req.body.notes;
+    const expectedDuration = req.body.expectedDuration || '20 min';
+    const consultationFee = req.body.consultationFee;
 
-    const patientId = authenticatedPatientId || req.body.patientId || (req as any).user?.id || 'pat-demo-01';
+    const patientId = authenticatedPatientId || req.body.patientId || req.body.patient_id || (req as any).user?.id || 'pat-demo-01';
 
     if (!doctorId || !clinicId || !date || !time) {
       res.status(400).json({ success: false, error: 'Missing required booking parameters (doctorId, clinicId, date, time).' });
@@ -256,9 +254,16 @@ function formatAppointmentResponse(apt: any) {
   let currentServingToken: string | undefined = undefined;
   let currentServingPatient: string | undefined = undefined;
 
-  if (
+  const isCompleted = ['Completed', 'COMPLETED'].includes(apt.status) || ['Completed', 'COMPLETED'].includes(apt.appointmentStatus);
+
+  if (isCompleted) {
+    liveQueuePosition = 0;
+    livePatientsAhead = 0;
+    liveEstimatedWait = 'Completed';
+    liveStatus = 'Completed';
+  } else if (
     aptDate === todayStr &&
-    !['Cancelled', 'CANCELLED', 'No Show', 'NO_SHOW', 'No-Show', 'Completed', 'COMPLETED'].includes(apt.status)
+    !['Cancelled', 'CANCELLED', 'No Show', 'NO_SHOW', 'No-Show'].includes(apt.status)
   ) {
     const queue = queueManager.getQueue(apt.clinic_id, apt.doctor_id, todayStr);
     const activeItem = queue.find((q) => q.status === 'IN_CONSULTATION');
@@ -289,6 +294,28 @@ function formatAppointmentResponse(apt: any) {
     }
   }
 
+  // Check if prescription exists for this appointment
+  const rx = memoryDb.prescriptions.get(apt.id) ||
+    Array.from(memoryDb.prescriptions.values()).find((p) => p.appointment_id === apt.id || p.id === `rx-${apt.id}`);
+
+  let formattedRx: any = null;
+  if (rx) {
+    formattedRx = {
+      id: rx.id,
+      appointmentId: rx.appointment_id,
+      doctorName: rx.doctor_name,
+      doctorSpecialization: rx.doctor_specialization,
+      doctorRegistrationNumber: rx.doctor_registration_number,
+      clinicName: rx.clinic_name,
+      clinicAddress: rx.clinic_address,
+      date: rx.date,
+      diagnosis: rx.diagnosis,
+      clinicalNotes: rx.clinical_notes,
+      medicines: rx.medicines || [],
+      followUpDate: rx.follow_up_date,
+    };
+  }
+
   return {
     ...apt,
     doctorId: apt.doctor_id || apt.doctorId,
@@ -309,7 +336,8 @@ function formatAppointmentResponse(apt: any) {
     currentServingPatient,
     travelTime: apt.travel_time || apt.travelTime,
     consultationFee: apt.consultation_fee || apt.consultationFee,
-    prescriptionAvailable: apt.prescription_available !== undefined ? apt.prescription_available : apt.prescriptionAvailable,
+    prescriptionAvailable: formattedRx ? true : (apt.prescription_available !== undefined ? apt.prescription_available : apt.prescriptionAvailable),
+    prescription: formattedRx || apt.prescription || null,
     customReasonText: apt.custom_reason_text || apt.customReasonText,
     startDateTime: apt.created_at,
     referenceId: (apt.id || '').toUpperCase(),
@@ -335,6 +363,7 @@ appointmentRouter.get('/', async (req: Request, res: Response): Promise<void> =>
     const queryPatientId = req.query.patientId as string;
     const clinicId = req.query.clinicId as string;
     const doctorId = req.query.doctorId as string;
+    const statusQuery = req.query.status as string;
 
     let appointments: any[] = [];
     if (clinicId) {
@@ -351,6 +380,20 @@ appointmentRouter.get('/', async (req: Request, res: Response): Promise<void> =>
       }
     }
 
+    if (statusQuery) {
+      const normStatus = statusQuery.toUpperCase().replace(/[\s_-]+/g, '');
+      if (normStatus === 'ACTIVE') {
+        const nonActiveStatuses = ['CANCELLED', 'CANCELED', 'COMPLETED', 'NOSHOW', 'NO_SHOW'];
+        appointments = appointments.filter(
+          (a) => !nonActiveStatuses.includes((a.status || '').toUpperCase().replace(/[\s_-]+/g, ''))
+        );
+      } else if (normStatus !== 'ALL') {
+        appointments = appointments.filter(
+          (a) => (a.status || '').toUpperCase().replace(/[\s_-]+/g, '') === normStatus
+        );
+      }
+    }
+
     // Deduplicate appointments strictly by appointment id
     const seenIds = new Set<string>();
     const deduplicatedList: any[] = [];
@@ -364,6 +407,56 @@ appointmentRouter.get('/', async (req: Request, res: Response): Promise<void> =>
     res.status(200).json({ success: true, appointments: deduplicatedList });
   } catch (err: any) {
     res.status(500).json({ success: false, error: 'Failed to fetch appointments.' });
+  }
+});
+
+// GET /api/appointments/patient/:patientId
+appointmentRouter.get('/patient/:patientId', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rawId = req.params.patientId;
+    const patientObj = memoryDb.patients.get(rawId);
+    const targetIds = new Set<string>([rawId]);
+    if (patientObj) {
+      targetIds.add(patientObj.id);
+    }
+    const list = Array.from(memoryDb.appointments.values())
+      .filter((a: any) => targetIds.has(a.patient_id) || targetIds.has(a.patientId))
+      .map(formatAppointmentResponse);
+    res.status(200).json({ success: true, appointments: list });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Failed to fetch patient appointments.' });
+  }
+});
+
+// GET /api/appointments/active
+appointmentRouter.get('/active', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const clinicId = req.query.clinicId as string;
+    const doctorId = req.query.doctorId as string;
+    const patientId = req.query.patientId as string;
+
+    const list: any[] = [];
+    const nonActive = ['CANCELLED', 'CANCELED', 'COMPLETED', 'NOSHOW', 'NO_SHOW'];
+
+    for (const apt of memoryDb.appointments.values()) {
+      const norm = (apt.status || '').toUpperCase().replace(/[\s_-]+/g, '');
+      if (nonActive.includes(norm)) continue;
+
+      if (clinicId && apt.clinic_id !== clinicId && !apt.clinic_name?.toLowerCase().includes(clinicId.toLowerCase())) {
+        continue;
+      }
+      if (doctorId && apt.doctor_id !== doctorId && !apt.doctor_name?.toLowerCase().includes(doctorId.toLowerCase())) {
+        continue;
+      }
+      if (patientId && apt.patient_id !== patientId) {
+        continue;
+      }
+      list.push(formatAppointmentResponse(apt));
+    }
+
+    res.status(200).json({ success: true, count: list.length, appointments: list });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Failed to fetch active appointments.' });
   }
 });
 
@@ -514,82 +607,29 @@ const handleNoShow = async (req: Request, res: Response): Promise<void> => {
 appointmentRouter.put('/:id/no-show', handleNoShow);
 appointmentRouter.post('/:id/no-show', handleNoShow);
 
-// POST /api/appointments/:id/cancel
-appointmentRouter.post('/:id/cancel', async (req: Request, res: Response): Promise<void> => {
+// POST & PUT /api/appointments/:id/cancel
+const handleCancelAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { reason = 'Patient requested cancellation' } = req.body || {};
-    const apt = await AppointmentModel.getById(req.params.id);
-    if (!apt) {
-      res.status(404).json({ success: false, error: 'Appointment not found.' });
+    const result = await queueManager.cancelAppointment(req.params.id, reason);
+
+    if (!result.success) {
+      res.status(400).json({ success: false, error: result.error });
       return;
     }
 
-    // Policy check
-    const policyCheck = timeService.isCancellationAllowed(
-      apt.status,
-      apt.date || apt.appointmentDate || timeService.getTodayDateString(),
-      apt.time || apt.slotStartTime || '09:00 AM'
-    );
-
-    if (!policyCheck.allowed) {
-      res.status(400).json({ success: false, error: policyCheck.reason });
-      return;
-    }
-
-    const nowIso = timeService.getCurrentClinicDate().toISOString();
-    apt.status = 'Cancelled';
-    apt.appointmentStatus = 'CANCELLED';
-    apt.cancelledAt = nowIso;
-    apt.cancellationReason = reason;
-    apt.updated_at = nowIso;
-    await AppointmentModel.update(apt.id, apt);
-    memoryDb.appointment_queue.delete(apt.id);
-
-    const cancelPayload = {
-      appointmentId: apt.id,
-      clinicId: apt.clinic_id,
-      patientId: apt.patient_id,
-      doctorId: apt.doctor_id,
-      appointmentDate: apt.date,
-      slotStartTime: apt.time,
-      status: 'Cancelled',
-      appointmentStatus: 'CANCELLED',
-      cancellationReason: reason,
-      cancelledAt: nowIso,
-    };
-
-    emitToPatient(apt.patient_id, 'appointment:cancelled', cancelPayload);
-    emitToPatient(apt.patient_id, 'appointment:status', cancelPayload);
-    emitToAppointment(apt.id, 'appointment:cancelled', cancelPayload);
-    emitToDoctor(apt.doctor_id, 'appointment:cancelled', cancelPayload);
-    if (apt.clinic_id) {
-      emitToClinic(apt.clinic_id, 'appointment:cancelled', cancelPayload);
-    }
-    emitBroadcast('appointment:cancelled', cancelPayload);
-    emitBroadcast('doctor:availability_updated', {
-      doctorId: apt.doctor_id,
-      clinicId: apt.clinic_id,
-      date: apt.date || apt.appointmentDate,
-      releasedSlot: apt.time || apt.slotStartTime,
-      action: 'CANCELLATION',
-      appointmentId: apt.id,
+    res.status(200).json({
+      success: true,
+      appointment: formatAppointmentResponse(result.appointment!),
+      message: result.message || 'Appointment cancelled successfully.',
     });
-    emitBroadcast('queue:updated', { freedAppointmentId: apt.id, message: 'Queue updated after cancellation.' });
-
-    await notificationService.sendNotification({
-      patientId: apt.patient_id,
-      title: 'Appointment Cancelled ❌',
-      message: `Your appointment with ${apt.doctor_name} on ${apt.date} at ${apt.time} has been cancelled. Slot is now released.`,
-      category: 'Appointments',
-      type: 'appointment',
-      actionData: { appointmentId: apt.id },
-    });
-
-    res.status(200).json({ success: true, appointment: formatAppointmentResponse(apt), message: 'Appointment cancelled successfully.' });
   } catch (err: any) {
+    console.error('Cancel appointment error:', err);
     res.status(500).json({ success: false, error: 'Failed to cancel appointment.' });
   }
-});
+};
+appointmentRouter.post('/:id/cancel', handleCancelAppointment);
+appointmentRouter.put('/:id/cancel', handleCancelAppointment);
 
 // POST /api/appointments/:id/switch-doctor
 appointmentRouter.post('/:id/switch-doctor', async (req: Request, res: Response): Promise<void> => {

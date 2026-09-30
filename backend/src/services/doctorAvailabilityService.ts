@@ -236,84 +236,54 @@ export const doctorAvailabilityService = {
     let activeClinicId = doctor.clinic_id;
     let activeClinicName = doctor.clinic_name;
 
-    if (clinicId) {
-      const canonicalTargetClinic = resolveCanonicalClinicId(clinicId);
-      const targetClinic = await ClinicModel.getById(canonicalTargetClinic);
-      if (targetClinic) {
-        activeClinicId = targetClinic.id;
-        activeClinicName = targetClinic.name;
-      }
+    const canonicalTargetClinic = clinicId
+      ? resolveCanonicalClinicId(clinicId)
+      : resolveCanonicalClinicId(doctor.clinic_id);
 
-      // Check if there is an approved availability request for this clinic & date
-      const approvedRequest = await AvailabilityRequestModel.getApprovedForDoctorAndClinic(
-        doctor.id,
-        canonicalTargetClinic,
-        normDate
-      );
+    const targetClinic = await ClinicModel.getById(canonicalTargetClinic);
+    if (targetClinic) {
+      activeClinicId = targetClinic.id;
+      activeClinicName = targetClinic.name;
+    }
 
-      // Also check pending or rejected requests
-      const allRequestsForDate = await AvailabilityRequestModel.getRequests({
+    const isPrimaryClinic = canonicalTargetClinic === resolveCanonicalClinicId(doctor.clinic_id);
+
+    // Retrieve ALL approved requests for this doctor, clinic, and date
+    const approvedRequests = await AvailabilityRequestModel.getAllApprovedForDoctorAndClinic(
+      doctor.id,
+      canonicalTargetClinic,
+      normDate
+    );
+
+    // Check all requests for this doctor, clinic, and date
+    const allRequestsForDate = await AvailabilityRequestModel.getRequests({
+      doctorId: doctor.id,
+      clinicId: canonicalTargetClinic,
+      date: normDate,
+    });
+
+    const hasApproved = approvedRequests.length > 0;
+
+    // Strict rule: MUST have an approved availability request to generate bookable slots.
+    // If no availability request is approved for this clinic and date, return UNAVAILABLE with 0 slots.
+    if (!hasApproved) {
+      return {
         doctorId: doctor.id,
-        clinicId: canonicalTargetClinic,
+        doctorName: doctor.name,
+        clinicId: activeClinicId,
+        clinicName: activeClinicName,
+        department: doctor.specialization,
         date: normDate,
-      });
-      const hasRejected = allRequestsForDate.some((r) => r.status === 'REJECTED');
-      const hasPendingOnly =
-        allRequestsForDate.length > 0 && allRequestsForDate.every((r) => r.status === 'PENDING');
-
-      if (hasRejected || hasPendingOnly) {
-        // Explicitly rejected or pending approval: no slots available
-        return {
-          doctorId: doctor.id,
-          doctorName: doctor.name,
-          clinicId: activeClinicId,
-          clinicName: activeClinicName,
-          department: doctor.specialization,
-          date: normDate,
-          dayName: schedule.dayName,
-          availabilityStatus: 'UNAVAILABLE',
-          isAvailableToday: false,
-          workingHours: { start: '', end: '' },
-          breaks: [],
-          consultationDurationMinutes: schedule.consultationDurationMinutes,
-          totalSlotsCount: 0,
-          availableSlotsCount: 0,
-          slots: { morning: [], afternoon: [], evening: [] },
-        };
-      }
-
-      if (approvedRequest) {
-        // Doctor approved for this specific window!
-        schedule = {
-          ...schedule,
-          clinicId: activeClinicId,
-          startTime: approvedRequest.start_time,
-          endTime: approvedRequest.end_time,
-          startMinutes: parseTimeToMinutes(approvedRequest.start_time),
-          endMinutes: parseTimeToMinutes(approvedRequest.end_time),
-          availabilityStatus: 'AVAILABLE',
-          isOffDuty: false,
-        };
-      } else {
-        // No approved availability request for this clinic & date: no slots available
-        return {
-          doctorId: doctor.id,
-          doctorName: doctor.name,
-          clinicId: activeClinicId,
-          clinicName: activeClinicName,
-          department: doctor.specialization,
-          date: normDate,
-          dayName: schedule.dayName,
-          availabilityStatus: 'UNAVAILABLE',
-          isAvailableToday: false,
-          workingHours: { start: '', end: '' },
-          breaks: [],
-          consultationDurationMinutes: schedule.consultationDurationMinutes,
-          totalSlotsCount: 0,
-          availableSlotsCount: 0,
-          slots: { morning: [], afternoon: [], evening: [] },
-        };
-      }
+        dayName: schedule.dayName,
+        availabilityStatus: 'UNAVAILABLE',
+        isAvailableToday: false,
+        workingHours: { start: '', end: '' },
+        breaks: [],
+        consultationDurationMinutes: schedule.consultationDurationMinutes,
+        totalSlotsCount: 0,
+        availableSlotsCount: 0,
+        slots: { morning: [], afternoon: [], evening: [] },
+      };
     }
 
     // Collect active appointments for this doctor on this date
@@ -342,41 +312,76 @@ export const doctorAvailabilityService = {
     const afternoon: DoctorSlotItem[] = [];
     const evening: DoctorSlotItem[] = [];
 
-    const isDoctorDisabled =
-      schedule.isOnLeave ||
-      schedule.isOffDuty ||
-      schedule.isUnavailableToday ||
-      schedule.isEmergencyClosed ||
-      schedule.availabilityStatus === 'UNAVAILABLE';
+    const consultationDurationMinutes = schedule.consultationDurationMinutes || 20;
 
-    // Generate slots fitting strictly inside working hours
-    const { startMinutes, endMinutes, consultationDurationMinutes, breaks } = schedule;
+    // Define time windows to generate slots from
+    interface TimeWindow {
+      startMins: number;
+      endMins: number;
+      startStr: string;
+      endStr: string;
+    }
 
-    for (let m = startMinutes; m + consultationDurationMinutes <= endMinutes; m += consultationDurationMinutes) {
-      // Check break collision: slot [m, m + dur] overlaps break [b.start, b.end]
-      const overlapsBreak = breaks.some((b) => m < b.endMins && m + consultationDurationMinutes > b.startMins);
-      if (overlapsBreak) {
-        continue;
-      }
+    // Windows are derived strictly from approved availability requests
+    const windows: TimeWindow[] = approvedRequests.map((req) => ({
+      startMins: parseTimeToMinutes(req.start_time),
+      endMins: parseTimeToMinutes(req.end_time),
+      startStr: req.start_time,
+      endStr: req.end_time,
+    }));
 
-      const slotTime = formatMinutesToTime(m);
-      const isPast = isSlotPast(m);
-      const isBooked = bookedTimes.has(slotTime);
+    // Sort windows chronologically
+    windows.sort((a, b) => a.startMins - b.startMins);
 
-      const isAvailable = !isDoctorDisabled && !isPast && !isBooked;
+    const clinicLiveStatus = await DoctorClinicAssignmentModel.getStatus(doctor.id, canonicalTargetClinic);
+    const effectiveLiveStatus = clinicLiveStatus || doctor.status;
+    const isLiveUnavailable = isToday && (effectiveLiveStatus === 'OFFLINE' || effectiveLiveStatus === 'BUSY');
 
-      const slotItem: DoctorSlotItem = {
-        time: slotTime,
-        status: isAvailable ? 'Available' : 'Unavailable',
-        isAvailable,
-      };
+    // If doctor has approved requests for this clinic and date, doctor is explicitly available for them
+    const isDoctorDisabled = isLiveUnavailable || (hasApproved
+      ? schedule.isOnLeave || schedule.isEmergencyClosed
+      : schedule.isOnLeave ||
+        schedule.isOffDuty ||
+        schedule.isUnavailableToday ||
+        schedule.isEmergencyClosed ||
+        schedule.availabilityStatus === 'UNAVAILABLE');
 
-      if (m < 720) {
-        morning.push(slotItem);
-      } else if (m < 1020) {
-        afternoon.push(slotItem);
-      } else {
-        evening.push(slotItem);
+    const generatedSlotTimes = new Set<string>();
+
+    for (const win of windows) {
+      for (let m = win.startMins; m + consultationDurationMinutes <= win.endMins; m += consultationDurationMinutes) {
+        // Check break collision: slot [m, m + dur] overlaps break [b.start, b.end]
+        const overlapsBreak = schedule.breaks.some(
+          (b) => m < b.endMins && m + consultationDurationMinutes > b.startMins
+        );
+        if (overlapsBreak) {
+          continue;
+        }
+
+        const slotTime = formatMinutesToTime(m);
+        if (generatedSlotTimes.has(slotTime)) {
+          continue;
+        }
+        generatedSlotTimes.add(slotTime);
+
+        const isPast = isSlotPast(m);
+        const isBooked = bookedTimes.has(slotTime);
+
+        const isAvailable = !isDoctorDisabled && !isPast && !isBooked;
+
+        const slotItem: DoctorSlotItem = {
+          time: slotTime,
+          status: isAvailable ? 'Available' : 'Unavailable',
+          isAvailable,
+        };
+
+        if (m < 720) {
+          morning.push(slotItem);
+        } else if (m < 1020) {
+          afternoon.push(slotItem);
+        } else {
+          evening.push(slotItem);
+        }
       }
     }
 
@@ -390,9 +395,11 @@ export const doctorAvailabilityService = {
       availableSlots[midIdx].reasoning = 'Lowest estimated wait (~8 min)';
     }
 
-    // Effective overall status
-    let effectiveStatus: DoctorAvailabilityState = schedule.availabilityStatus;
-    if (!isDoctorDisabled && allSlots.length > 0 && availableSlots.length === 0) {
+    // Effective overall status for approved schedule
+    let effectiveStatus: DoctorAvailabilityState = 'AVAILABLE';
+    if (isLiveUnavailable) {
+      effectiveStatus = (effectiveLiveStatus === 'BUSY' ? 'BUSY' : 'OFFLINE') as DoctorAvailabilityState;
+    } else if (allSlots.length > 0 && availableSlots.length === 0) {
       effectiveStatus = 'FULLY_BOOKED';
     }
 
@@ -407,8 +414,8 @@ export const doctorAvailabilityService = {
       availabilityStatus: effectiveStatus,
       isAvailableToday: effectiveStatus === 'AVAILABLE' && availableSlots.length > 0,
       workingHours: {
-        start: schedule.startTime,
-        end: schedule.endTime,
+        start: windows[0]?.startStr || schedule.startTime,
+        end: windows[windows.length - 1]?.endStr || schedule.endTime,
       },
       breaks: schedule.breaks.map((b) => ({ start: b.start, end: b.end, reason: b.reason })),
       consultationDurationMinutes: schedule.consultationDurationMinutes,
@@ -464,29 +471,32 @@ export const doctorAvailabilityService = {
 
     const normalizedDate = timeService.normalizeDateString(dateStr);
     const normalizedTime = timeService.normalizeTimeString(timeStr);
+    const slotMins = parseTimeToMinutes(normalizedTime);
 
-    // Dynamic availability requests check: Must have an APPROVED request for this clinic & date
+    // Dynamic availability requests check: Must have an APPROVED request for visiting clinic
+    const isPrimaryClinic = targetClinicCanonical === resolveCanonicalClinicId(doctor.clinic_id);
+    const approvedRequests = await AvailabilityRequestModel.getAllApprovedForDoctorAndClinic(
+      doctor.id,
+      targetClinicCanonical,
+      normalizedDate
+    );
+    const hasApproved = approvedRequests.length > 0;
+
     const allRequests = await AvailabilityRequestModel.getRequests({
       doctorId: doctor.id,
       clinicId: targetClinicCanonical,
       date: normalizedDate,
     });
-    const approved = allRequests.find((r) => r.status === 'APPROVED');
-    if (!approved) {
+    const hasPendingOnly =
+      allRequests.length > 0 && allRequests.every((r) => r.status === 'PENDING');
+    const allRejected =
+      allRequests.length > 0 && allRequests.every((r) => r.status === 'REJECTED');
+
+    if (!hasApproved) {
       return {
         valid: false,
         code: 'DOCTOR_UNAVAILABLE',
         error: `Doctor ${doctor.name} has not approved availability for ${clinic.name} on ${normalizedDate}.`,
-      };
-    }
-    const slotMins = parseTimeToMinutes(normalizedTime);
-    const reqStartMins = parseTimeToMinutes(approved.start_time);
-    const reqEndMins = parseTimeToMinutes(approved.end_time);
-    if (slotMins < reqStartMins || slotMins >= reqEndMins) {
-      return {
-        valid: false,
-        code: 'OUT_OF_HOURS',
-        error: `Selected slot (${normalizedTime}) is outside doctor's approved availability (${approved.start_time} - ${approved.end_time}).`,
       };
     }
 
@@ -502,45 +512,71 @@ export const doctorAvailabilityService = {
 
     // Doctor schedule for date
     let schedule = await this.getDoctorScheduleForDate(doctor, normalizedDate);
-    const approvedRequest = allRequests.find((r) => r.status === 'APPROVED');
-    if (approvedRequest) {
-      schedule = {
-        ...schedule,
-        startTime: approvedRequest.start_time,
-        endTime: approvedRequest.end_time,
-        startMinutes: parseTimeToMinutes(approvedRequest.start_time),
-        endMinutes: parseTimeToMinutes(approvedRequest.end_time),
-        isOffDuty: false,
-        availabilityStatus: 'AVAILABLE',
-      };
-    }
 
     if (schedule.isOnLeave) {
       return { valid: false, code: 'DOCTOR_ON_LEAVE', error: `Doctor ${doctor.name} is on leave on ${normalizedDate}.` };
-    }
-
-    if (schedule.isOffDuty) {
-      return { valid: false, code: 'DOCTOR_OFF_DUTY', error: `Doctor ${doctor.name} is off-duty on ${schedule.dayName}s.` };
     }
 
     if (schedule.isEmergencyClosed) {
       return { valid: false, code: 'DOCTOR_UNAVAILABLE', error: `Clinic/doctor schedule is temporarily closed on ${normalizedDate}.` };
     }
 
-    if (schedule.isUnavailableToday) {
-      return { valid: false, code: 'DOCTOR_UNAVAILABLE', error: `Doctor ${doctor.name} is currently offline or unavailable today.` };
+    // Check clinic-specific live status if booking for today
+    if (timeService.isToday(normalizedDate)) {
+      const clinicStatus = await DoctorClinicAssignmentModel.getStatus(doctor.id, targetClinicCanonical);
+      const liveStatus = clinicStatus || doctor.status;
+      if (liveStatus === 'OFFLINE') {
+        return {
+          valid: false,
+          code: 'DOCTOR_UNAVAILABLE',
+          error: `Doctor ${doctor.name} is currently offline at ${clinic.name}. Immediate booking is unavailable.`,
+        };
+      }
+      if (liveStatus === 'BUSY') {
+        return {
+          valid: false,
+          code: 'DOCTOR_UNAVAILABLE',
+          error: `Doctor ${doctor.name} is currently busy at ${clinic.name}. Immediate booking is unavailable.`,
+        };
+      }
     }
 
-    const durMins = options?.consultationDurationMinutes || (approvedRequest as any)?.slot_duration_minutes || schedule.consultationDurationMinutes || 20;
+    const durMins = options?.consultationDurationMinutes || schedule.consultationDurationMinutes || 20;
     const slotEndMins = slotMins + durMins;
 
-    // Working hours bounds
-    if (slotMins < schedule.startMinutes || slotEndMins > schedule.endMinutes) {
-      return {
-        valid: false,
-        code: 'OUT_OF_HOURS',
-        error: `Selected slot (${normalizedTime}) is outside working hours (${schedule.startTime} - ${schedule.endTime}).`,
-      };
+    if (hasApproved) {
+      // Validate slot falls strictly within one of the approved windows
+      const inAnyApprovedWindow = approvedRequests.some((r) => {
+        const reqStartMins = parseTimeToMinutes(r.start_time);
+        const reqEndMins = parseTimeToMinutes(r.end_time);
+        return slotMins >= reqStartMins && slotEndMins <= reqEndMins;
+      });
+
+      if (!inAnyApprovedWindow) {
+        const windowsStr = approvedRequests.map((r) => `${r.start_time} - ${r.end_time}`).join(', ');
+        return {
+          valid: false,
+          code: 'OUT_OF_HOURS',
+          error: `Selected slot (${normalizedTime}) is outside doctor's approved availability (${windowsStr}).`,
+        };
+      }
+    } else {
+      // Doctor working primary clinic default schedule
+      if (schedule.isOffDuty) {
+        return { valid: false, code: 'DOCTOR_OFF_DUTY', error: `Doctor ${doctor.name} is off-duty on ${schedule.dayName}s.` };
+      }
+
+      if (schedule.isUnavailableToday) {
+        return { valid: false, code: 'DOCTOR_UNAVAILABLE', error: `Doctor ${doctor.name} is currently offline or unavailable today.` };
+      }
+
+      if (slotMins < schedule.startMinutes || slotEndMins > schedule.endMinutes) {
+        return {
+          valid: false,
+          code: 'OUT_OF_HOURS',
+          error: `Selected slot (${normalizedTime}) is outside working hours (${schedule.startTime} - ${schedule.endTime}).`,
+        };
+      }
     }
 
     // Break bounds

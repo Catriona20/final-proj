@@ -1,4 +1,4 @@
-import { PharmacyModel, PharmacyItemEntity, PharmacyDispensationEntity, isMedicineMatch } from '../database/models';
+import { PharmacyModel, PharmacyItemEntity, PharmacyDispensationEntity, isMedicineMatch, PrescriptionModel } from '../database/models';
 import { pharmacySecurityClient } from './pharmacySecurityClient';
 import { nlpService } from './nlpService';
 
@@ -231,6 +231,26 @@ export const pharmacyService = {
       userId: dispensedBy || 'pharmacy-staff',
     });
 
+    // 6. Update prescription status if associated with a prescription
+    if (prescriptionId) {
+      await PrescriptionModel.updateStatus(prescriptionId, 'dispensed');
+    }
+
+    // 7. Synchronize dispensation event to remote security & pharmacy service
+    if (batchesUsed.length > 0) {
+      pharmacySecurityClient
+        .recordRemoteDispensation({
+          prescriptionId: prescriptionId || `rx-disp-${Date.now()}`,
+          medicineName: matchingBatches[0].name,
+          batchNumber: batchesUsed[0].batchNumber,
+          quantityDispensed: quantity,
+          dispensedBy: dispensedBy || 'Pharmacy Staff',
+        })
+        .catch((err) => {
+          console.warn('⚠️ Remote dispensation sync advisory:', err.message);
+        });
+    }
+
     const updatedAll = await PharmacyModel.getAll(clinicId ? { clinicId } : undefined);
     const remainingTotalStock = updatedAll
       .filter((i) => isMedicineMatch(medicineName, i))
@@ -249,8 +269,8 @@ export const pharmacyService = {
   /**
    * Low Stock & Critical Restock Alerts
    */
-  async getLowStockAlerts(): Promise<LowStockAlert[]> {
-    const lowStockItems = await PharmacyModel.getLowStockItems();
+  async getLowStockAlerts(clinicId?: string): Promise<LowStockAlert[]> {
+    const lowStockItems = await PharmacyModel.getLowStockItems(clinicId);
 
     return lowStockItems.map((item) => {
       const suggestedReorder = Math.max(

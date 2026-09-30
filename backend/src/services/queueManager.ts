@@ -552,6 +552,190 @@ export const queueManager = {
   },
 
   /**
+   * Cancels an appointment, cleans up queue state, recalculates wait times,
+   * checks for earlier slot eligibility, and emits real-time cancellation events.
+   */
+  async cancelAppointment(
+    appointmentId: string,
+    reason: string = 'Patient requested cancellation'
+  ): Promise<{ success: boolean; appointment?: AppointmentEntity; error?: string; message?: string }> {
+    const apt = await AppointmentModel.getById(appointmentId);
+    if (!apt) {
+      return { success: false, error: 'Appointment not found.' };
+    }
+
+    // Policy check: Cannot cancel if already in consultation or completed
+    const normStatus = (apt.status || '').toUpperCase().replace(/[\s_-]+/g, '');
+    if (['INCONSULTATION', 'INSESSION'].includes(normStatus)) {
+      return { success: false, error: 'Cannot cancel an appointment currently in consultation.' };
+    }
+    if (['COMPLETED'].includes(normStatus)) {
+      return { success: false, error: 'Cannot cancel a completed consultation.' };
+    }
+    if (['CANCELLED'].includes(normStatus)) {
+      return { success: false, error: 'Appointment is already cancelled.' };
+    }
+
+    const nowIso = timeService.getCurrentClinicDate().toISOString();
+    const freedSlotTime = apt.time || apt.slotStartTime || '09:00 AM';
+    const freedDate = apt.date || apt.appointmentDate || timeService.getTodayDateString();
+
+    // 1. Mark appointment as CANCELLED atomically
+    apt.status = 'Cancelled';
+    apt.appointmentStatus = 'CANCELLED';
+    apt.cancelledAt = nowIso;
+    apt.cancellationReason = reason;
+    apt.updated_at = nowIso;
+    apt.queue_position = 0;
+    apt.patients_ahead = 0;
+    await AppointmentModel.update(apt.id, apt);
+    memoryDb.appointments.set(apt.id, apt);
+    memoryDb.appointment_queue.delete(apt.id);
+
+    // 2. Recalculate wait times & queue positions for remaining waiting patients under the same doctor
+    const canonicalClinicId = resolveCanonicalClinicId(apt.clinic_id);
+    const canonicalDoctorId = resolveCanonicalDoctorId(apt.doctor_id);
+    const doc = memoryDb.doctors.get(apt.doctor_id);
+    const avgDuration = parseInt(doc?.consultation_duration?.replace(/[^0-9]/g, '') || '20', 10) || 20;
+
+    for (const remaining of memoryDb.appointments.values()) {
+      const remDate = remaining.date || remaining.appointmentDate || '';
+      if (
+        resolveCanonicalDoctorId(remaining.doctor_id) === canonicalDoctorId &&
+        resolveCanonicalClinicId(remaining.clinic_id) === canonicalClinicId &&
+        timeService.normalizeDateString(remDate) === timeService.normalizeDateString(freedDate) &&
+        ['Checked In', 'CHECKED_IN', 'Waiting', 'WAITING', 'Almost Your Turn', 'Next'].includes(remaining.status)
+      ) {
+        if (remaining.patients_ahead > 0) {
+          remaining.patients_ahead = Math.max(0, remaining.patients_ahead - 1);
+          remaining.queue_position = Math.max(1, remaining.queue_position - 1);
+          remaining.estimated_wait = remaining.patients_ahead === 0 ? 'Under 2 min' : `${remaining.patients_ahead * avgDuration} min`;
+          memoryDb.appointments.set(remaining.id, remaining);
+
+          emitToPatient(remaining.patient_id, 'queue:updated', {
+            appointmentId: remaining.id,
+            status: remaining.status,
+            patientsAhead: remaining.patients_ahead,
+            queuePosition: remaining.queue_position,
+            estimatedWait: remaining.estimated_wait,
+          });
+        }
+      }
+    }
+
+    // 3. Find eligible candidate for earlier slot offer (if same doctor & date)
+    let eligibleCandidate: AppointmentEntity | undefined;
+    for (const candidate of memoryDb.appointments.values()) {
+      const candDate = candidate.date || candidate.appointmentDate || '';
+      if (
+        candidate.id !== appointmentId &&
+        resolveCanonicalDoctorId(candidate.doctor_id) === canonicalDoctorId &&
+        ['Booked', 'BOOKED', 'Waiting', 'WAITING'].includes(candidate.status) &&
+        timeService.normalizeDateString(candDate) === timeService.normalizeDateString(freedDate)
+      ) {
+        eligibleCandidate = candidate;
+        break;
+      }
+    }
+
+    if (eligibleCandidate && freedSlotTime && freedDate) {
+      eligibleCandidate.earlier_slot_offered = {
+        newDate: freedDate,
+        newTime: freedSlotTime,
+        timeDifference: 'Earlier today',
+        estimatedWait: 'Save ~45 mins',
+      };
+      memoryDb.appointments.set(eligibleCandidate.id, eligibleCandidate);
+
+      emitToPatient(eligibleCandidate.patient_id, 'slot:earlier_available', {
+        appointmentId: eligibleCandidate.id,
+        newDate: freedDate,
+        newTime: freedSlotTime,
+        doctorName: eligibleCandidate.doctor_name,
+      });
+
+      await notificationService.sendNotification({
+        patientId: eligibleCandidate.patient_id,
+        title: 'Earlier Appointment Slot Available! ⚡',
+        message: `An earlier slot at ${freedSlotTime} is open with ${eligibleCandidate.doctor_name}. Tap to accept or keep current slot.`,
+        category: 'Appointments',
+        type: 'appointment',
+        actionData: {
+          appointmentId: eligibleCandidate.id,
+          offeredDate: freedDate,
+          offeredTime: freedSlotTime,
+        },
+      });
+    }
+
+    // 4. Construct comprehensive cancellation event payload
+    const tokenNumber =
+      (apt.token_number && apt.token_number.trim()) ||
+      ((apt as any).tokenNumber && (apt as any).tokenNumber.trim()) ||
+      ((apt as any).queueToken && (apt as any).queueToken.trim()) ||
+      (apt.queue_number ? `A${String(apt.queue_number).padStart(3, '0')}` : 'A001');
+
+    const cancelPayload = {
+      appointmentId: apt.id,
+      tokenNumber,
+      patientId: apt.patient_id,
+      doctorId: apt.doctor_id,
+      clinicId: apt.clinic_id,
+      status: 'CANCELLED',
+      appointmentStatus: 'CANCELLED',
+      cancellationReason: reason,
+      cancelledAt: nowIso,
+      appointmentDate: apt.date,
+      slotStartTime: apt.time,
+    };
+
+    // 5. Emit to patient, doctor, clinic, and broadcast
+    emitToPatient(apt.patient_id, 'appointment:cancelled', cancelPayload);
+    emitToPatient(apt.patient_id, 'appointment:status', cancelPayload);
+    emitToAppointment(apt.id, 'appointment:cancelled', cancelPayload);
+
+    emitToDoctor(apt.doctor_id, 'appointment:cancelled', cancelPayload);
+    emitToDoctor(apt.doctor_id, 'appointment:status', cancelPayload);
+    emitToDoctor(canonicalDoctorId, 'appointment:cancelled', cancelPayload);
+
+    if (apt.clinic_id) {
+      emitToClinic(apt.clinic_id, 'appointment:cancelled', cancelPayload);
+      emitToClinic(apt.clinic_id, 'appointment:status', cancelPayload);
+      emitToClinic(canonicalClinicId, 'appointment:cancelled', cancelPayload);
+    }
+
+    emitBroadcast('appointment:cancelled', cancelPayload);
+    emitBroadcast('appointment:status', cancelPayload);
+    emitBroadcast('doctor:availability_updated', {
+      doctorId: apt.doctor_id,
+      clinicId: apt.clinic_id,
+      date: freedDate,
+      releasedSlot: freedSlotTime,
+      action: 'CANCELLATION',
+      appointmentId: apt.id,
+    });
+    emitBroadcast('queue:updated', {
+      freedAppointmentId: apt.id,
+      message: 'Queue updated after appointment cancellation.',
+    });
+
+    await notificationService.sendNotification({
+      patientId: apt.patient_id,
+      title: 'Appointment Cancelled ❌',
+      message: `Your appointment with ${apt.doctor_name} on ${apt.date} at ${apt.time} has been cancelled. Slot is now released.`,
+      category: 'Appointments',
+      type: 'appointment',
+      actionData: { appointmentId: apt.id },
+    });
+
+    return {
+      success: true,
+      appointment: apt,
+      message: 'Appointment cancelled successfully.',
+    };
+  },
+
+  /**
    * Reassigns an appointment to another doctor in the same clinic and department,
    * verifying slot availability and propagating socket events.
    */

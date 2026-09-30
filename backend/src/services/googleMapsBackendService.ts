@@ -29,89 +29,89 @@ export const HEALTHCARE_TERM_MAP: Array<{
   placesQuery: string;
 }> = [
   {
-    category: 'Ophthalmology',
-    keywords: ['eye', 'opt', 'vision', 'ophthalmolog', 'retina', 'cornea', 'glaucoma', 'cataract', 'spectacle', 'lasik', 'eye specialist', 'eye doctor', 'eye clinic', 'glasses', 'eye hospital'],
-    placesQuery: 'eye hospital OR ophthalmologist OR eye clinic',
-  },
-  {
     category: 'Dentistry',
-    keywords: ['dent', 'tooth', 'teeth', 'oral', 'orthodont', 'root canal', 'braces', 'dental clinic', 'dental doctor', 'dentist', 'dental hospital'],
+    keywords: ['dentist', 'dentistry', 'dental', 'tooth', 'teeth', 'toothache', 'tooth pain', 'oral', 'orthodontist', 'root canal', 'braces', 'dental clinic', 'dental doctor', 'dental hospital', 'cavity', 'gums', 'bleeding gums'],
     placesQuery: 'dental clinic OR dentist',
   },
   {
+    category: 'General Medicine',
+    keywords: ['general physician', 'general medicine', 'general practitioner', 'family doctor', 'internal medicine', 'primary care', 'fever', 'cold', 'cough', 'viral fever', 'body ache', 'checkup', 'physician', 'doctor', 'clinic near me', 'clinic', 'hospital near me', 'hospital', 'medical center'],
+    placesQuery: 'medical clinic OR general physician OR health center',
+  },
+  {
     category: 'Cardiology',
-    keywords: ['cardio', 'heart', 'ecg', 'cardiac', 'hypertension', 'angio', 'blood pressure', 'cardiologist', 'heart specialist', 'cardiac doctor', 'heart doctor', 'heart hospital'],
+    keywords: ['cardiologist', 'cardiology', 'cardiac', 'heart', 'heart specialist', 'heart doctor', 'cardiac doctor', 'heart hospital', 'chest pain', 'palpitations', 'ecg', 'hypertension', 'angina', 'angio', 'blood pressure'],
     placesQuery: 'cardiology clinic OR heart hospital OR cardiologist',
   },
   {
     category: 'Dermatology',
-    keywords: ['derm', 'skin', 'laser', 'acne', 'cosmet', 'hair', 'eczema', 'dermatologist', 'skin doctor', 'skin specialist', 'skin clinic'],
+    keywords: ['dermatologist', 'dermatology', 'skin specialist', 'skin doctor', 'skin', 'skin rash', 'rash', 'acne', 'eczema', 'psoriasis', 'hair fall', 'laser', 'cosmetology', 'skin clinic'],
     placesQuery: 'skin clinic OR dermatologist OR cosmetology',
   },
   {
+    category: 'Ophthalmology',
+    keywords: ['ophthalmologist', 'ophthalmology', 'eye specialist', 'eye doctor', 'eye', 'eye irritation', 'vision', 'blurred vision', 'cataract', 'glaucoma', 'retina', 'cornea', 'lasik', 'spectacle', 'glasses', 'eye clinic', 'eye hospital'],
+    placesQuery: 'eye hospital OR ophthalmologist OR eye clinic',
+  },
+  {
     category: 'ENT',
-    keywords: ['ent', 'ear', 'nose', 'throat', 'sinus', 'audiolog', 'tonsil', 'ent specialist', 'ear nose throat', 'ent doctor', 'ent clinic', 'ent hospital'],
+    keywords: ['ent', 'ent specialist', 'ent doctor', 'ear nose throat', 'otolaryngologist', 'ear pain', 'ear infection', 'sore throat', 'tonsil', 'sinus', 'sinusitis', 'audiologist', 'hearing', 'ent clinic', 'ent hospital'],
     placesQuery: 'ENT clinic OR ear nose throat specialist',
   },
   {
     category: 'Pediatrics',
-    keywords: ['pediat', 'child', 'baby', 'infant', 'vaccination', 'newborn', 'children doctor', 'child specialist', 'kids doctor', 'children hospital'],
+    keywords: ['pediatrician', 'paediatrician', 'pediatrics', 'paediatrics', 'child specialist', 'child doctor', 'kids doctor', 'baby doctor', 'infant', 'child fever', 'vaccination', 'newborn', 'children hospital', 'pediatric clinic'],
     placesQuery: 'pediatric clinic OR child specialist hospital',
   },
   {
     category: 'Orthopedics',
-    keywords: ['ortho', 'bone', 'joint', 'spine', 'fracture', 'knee', 'orthopedic', 'bone doctor', 'orthopedic specialist', 'joint pain', 'back pain', 'bone hospital'],
+    keywords: ['orthopedic', 'orthopaedic', 'orthopedics', 'orthopaedics', 'bone specialist', 'bone doctor', 'joint pain', 'knee pain', 'fracture', 'spine', 'arthritis', 'back pain', 'joint swelling', 'bone hospital', 'orthopedic clinic'],
     placesQuery: 'orthopedic clinic OR bone specialist hospital',
   },
   {
     category: 'Gynecology',
-    keywords: ['gyn', 'women', 'maternity', 'pregnancy', 'obstetric', 'female', 'gynecologist', 'fertility', 'pregnant', 'period', 'pelvic', 'maternity hospital'],
+    keywords: ['gynecologist', 'gynaecologist', 'gynecology', 'gynaecology', 'obstetrician', 'obstetrics', 'ob-gyn', 'obgyn', 'ob gyn', 'gynae', 'gyno', "women's health", 'womens health', 'pregnancy specialist', 'pregnancy', 'maternity', 'pcos', 'antenatal', 'prenatal', 'irregular periods', 'pelvic pain', 'fertility', 'maternity hospital', 'female doctor'],
     placesQuery: 'gynecology clinic OR maternity hospital OR obstetrician',
   },
   {
     category: 'Neurology',
-    keywords: ['neuro', 'brain', 'migraine', 'nerve', 'vertigo', 'tremor', 'headache', 'neurologist', 'epilepsy', 'stroke', 'brain doctor', 'neuro clinic'],
+    keywords: ['neurologist', 'neurology', 'brain specialist', 'brain doctor', 'nerve specialist', 'migraine', 'headache', 'vertigo', 'dizziness', 'epilepsy', 'stroke', 'seizure', 'tremor', 'nerve', 'neuro clinic'],
     placesQuery: 'neurology clinic OR brain spine center OR neurologist',
   },
   {
     category: 'Pulmonology',
-    keywords: ['pulmon', 'lung', 'breath', 'breathing', 'asthma', 'wheez', 'respiratory', 'chest congestion', 'pulmonologist', 'lung specialist'],
+    keywords: ['pulmonologist', 'pulmonology', 'lung specialist', 'lung doctor', 'chest specialist', 'respiratory specialist', 'breathing problem', 'difficulty breathing', 'shortness of breath', 'asthma', 'wheezing', 'chronic cough', 'bronchitis', 'chest congestion', 'pulmonary'],
     placesQuery: 'pulmonology clinic OR chest hospital OR pulmonologist',
   },
   {
     category: 'Nephrology',
-    keywords: ['nephro', 'kidney', 'renal', 'dialysis', 'creatinine', 'proteinuria', 'kidney specialist', 'nephrologist'],
-    placesQuery: 'nephrology clinic OR kidney care center OR nephrologist',
+    keywords: ['nephrologist', 'nephrology', 'kidney specialist', 'kidney doctor', 'renal specialist', 'kidney problem', 'kidney disease', 'dialysis', 'creatinine', 'proteinuria', 'renal care', 'foamy urine', 'renal'],
+    placesQuery: 'nephrology clinic OR kidney hospital OR nephrologist',
   },
   {
     category: 'Gastroenterology',
-    keywords: ['gastro', 'stomach', 'digest', 'acid reflux', 'gerd', 'liver', 'endoscopy', 'colon', 'gut', 'gastroenterologist', 'stomach pain'],
+    keywords: ['gastroenterologist', 'gastroenterology', 'stomach specialist', 'stomach doctor', 'digestive specialist', 'stomach pain', 'acidity', 'gerd', 'acid reflux', 'gastric', 'liver', 'abdominal pain', 'gastritis', 'digestive health'],
     placesQuery: 'gastroenterology clinic OR digestive health OR gastroenterologist',
   },
   {
     category: 'Endocrinology',
-    keywords: ['endocrin', 'diabetes', 'thyroid', 'hormone', 'blood sugar', 'insulin', 'metabolic', 'diabetologist', 'endocrinologist'],
-    placesQuery: 'diabetes center OR endocrinologist OR thyroid clinic',
+    keywords: ['endocrinologist', 'endocrinology', 'diabetologist', 'diabetes specialist', 'thyroid specialist', 'hormone specialist', 'diabetes', 'thyroid', 'blood sugar', 'insulin', 'metabolic', 'hormone'],
+    placesQuery: 'endocrinology clinic OR diabetes center OR endocrinologist',
   },
   {
     category: 'Urology',
-    keywords: ['uro', 'urolog', 'urine', 'urinary', 'kidney stone', 'bladder', 'prostate', 'burning urination', 'urologist'],
+    keywords: ['urologist', 'urology', 'urinary specialist', 'kidney stone', 'urine problem', 'urinary infection', 'uti', 'burning urination', 'bladder', 'prostate', 'dysuria', 'urine'],
     placesQuery: 'urology clinic OR urologist OR kidney stone center',
   },
   {
     category: 'Physiotherapy',
-    keywords: ['physio', 'physiotherapy', 'rehab', 'rehabilitation', 'mobility', 'posture', 'muscle pain', 'sports physio', 'physiotherapist'],
+    keywords: ['physiotherapist', 'physiotherapy', 'physical therapist', 'physical therapy', 'physio', 'rehabilitation', 'rehab', 'back pain physiotherapy', 'mobility', 'posture', 'sports physio'],
     placesQuery: 'physiotherapy clinic OR rehabilitation center OR physiotherapist',
   },
   {
     category: 'Psychiatry',
-    keywords: ['psych', 'mental', 'anxiety', 'depress', 'stress', 'insomnia', 'counsel', 'psychotherapy', 'panic', 'psychiatrist'],
-    placesQuery: 'psychiatry clinic OR mental wellness clinic OR psychiatrist',
-  },
-  {
-    category: 'General Medicine',
-    keywords: ['general', 'physician', 'doctor', 'fever', 'cold', 'cough', 'family doctor', 'checkup', 'primary care', 'clinic near me', 'clinic', 'hospital near me', 'hospital', 'internal medicine', 'medical center'],
-    placesQuery: 'medical clinic OR general physician OR health center',
+    keywords: ['psychiatrist', 'psychiatry', 'mental health doctor', 'mental health specialist', 'psychologist', 'mental health', 'anxiety', 'depression', 'insomnia', 'stress', 'panic attacks', 'counseling', 'psych'],
+    placesQuery: 'psychiatry clinic OR mental health center OR psychiatrist',
   },
 ];
 

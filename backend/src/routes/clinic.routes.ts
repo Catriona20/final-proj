@@ -144,10 +144,18 @@ clinicRouter.get('/discovery', async (req: Request, res: Response): Promise<void
 });
 
 // GET /api/clinics
-clinicRouter.get('/', async (_req: Request, res: Response): Promise<void> => {
+clinicRouter.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const clinics = await ClinicModel.getAll();
-    res.status(200).json({ success: true, clinics });
+    let clinics = await ClinicModel.getAll();
+    const dept = ((req.query.department || req.query.specialty) as string || '').trim().toLowerCase();
+    if (dept) {
+      clinics = clinics.filter((c: any) => {
+        const depts: string[] = (c.departments || []).map((d: string) => d.toLowerCase());
+        const specs: string[] = (c.specialties || []).map((s: string) => s.toLowerCase());
+        return depts.includes(dept) || specs.includes(dept) || depts.some((d: string) => d.includes(dept) || dept.includes(d));
+      });
+    }
+    res.status(200).json({ success: true, count: clinics.length, clinics });
   } catch (err: any) {
     res.status(500).json({ success: false, error: 'Failed to fetch clinics.' });
   }

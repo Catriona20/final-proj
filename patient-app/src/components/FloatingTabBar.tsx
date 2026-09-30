@@ -33,7 +33,7 @@ export const FloatingTabBar: React.FC<BottomTabBarProps> = ({
   const theme = getThemeColors(isDark);
 
   return (
-    <View style={styles.wrapper}>
+    <View style={styles.wrapper} pointerEvents="box-none">
       <View
         style={[
           styles.container,
@@ -127,6 +127,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingBottom: Platform.OS === 'ios' ? 20 : SPACING.sm + 2,
     backgroundColor: 'transparent',
+    zIndex: 1200,
+    elevation: 25,
   },
   container: {
     flexDirection: 'row',

@@ -102,6 +102,17 @@ async function runTests() {
 
   // Step 2: Test Booking Idempotency
   console.log('\n--- Step 2: Booking Idempotency & Deduplication ---');
+  await request(
+    {
+      hostname: 'localhost',
+      port: 5000,
+      path: '/api/simulation/demo-clock',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    },
+    { simulatedIsoString: '2026-09-29T10:00:00+05:30' }
+  );
+
   const clockRes = await request({
     hostname: 'localhost',
     port: 5000,
@@ -161,14 +172,21 @@ async function runTests() {
     bookingPayload
   );
 
-  if (bookRes2.status !== 200 && bookRes2.status !== 201) {
-    throw new Error(`Duplicate booking call crashed: ${JSON.stringify(bookRes2.data)}`);
+  if (bookRes2.status === 409 && bookRes2.data?.code === 'DUPLICATE_BOOKING') {
+    const apt2 = bookRes2.data.appointment;
+    if (apt2 && apt2.id !== apt1.id) {
+      throw new Error(`Duplicate booking created duplicate appointment! ID 1=${apt1.id}, ID 2=${apt2.id}`);
+    }
+    console.log(`✅ Duplicate booking rejected with HTTP 409 DUPLICATE_BOOKING (idempotency verified): appointment ${apt1.id}`);
+  } else if (bookRes2.status === 200 || bookRes2.status === 201) {
+    const apt2 = bookRes2.data.appointment;
+    if (apt2.id !== apt1.id) {
+      throw new Error(`Duplicate booking created duplicate appointment! ID 1=${apt1.id}, ID 2=${apt2.id}`);
+    }
+    console.log(`✅ Booking idempotency verified: returned existing appointment ${apt2.id} without creating duplicate.`);
+  } else {
+    throw new Error(`Duplicate booking call failed unexpectedly: status ${bookRes2.status} ${JSON.stringify(bookRes2.data)}`);
   }
-  const apt2 = bookRes2.data.appointment;
-  if (apt2.id !== apt1.id) {
-    throw new Error(`Duplicate booking created duplicate appointment! ID 1=${apt1.id}, ID 2=${apt2.id}`);
-  }
-  console.log(`✅ Booking idempotency verified: returned existing appointment ${apt2.id} without creating duplicate.`);
 
   // Verify appointments list for Aarav has exactly 1 appointment with this ID
   const verifyAptsRes = await request({

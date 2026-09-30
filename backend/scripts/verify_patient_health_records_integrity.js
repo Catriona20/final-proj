@@ -14,6 +14,11 @@ async function main() {
   assert.strictEqual(resetRes.data.success, true);
   console.log('   ✓ Demo state reset successfully.\n');
 
+  // Set demo clock to 2026-09-09 10:00 AM for deterministic testing
+  await axios.post(`${API_BASE}/simulation/demo-clock`, {
+    simulatedIsoString: '2026-09-09T10:00:00+05:30',
+  });
+
   // Step 1: Login as Sneha Patel (pat-demo-02)
   console.log('1. Authenticating Sneha Patel (pat-demo-02)...');
   const snehaLogin = await axios.post(`${API_BASE}/auth/login`, {

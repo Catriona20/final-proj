@@ -38,7 +38,7 @@ const fallbackStore = {
         generic_name: 'Paracetamol',
         manufacturer: 'Micro Labs',
         category: 'Analgesic',
-        unit_price: 32.5,
+        unit_price: 3.5,
         reorder_threshold: 30,
         safety_stock: 20,
         supplier_lead_time_days: 7,
@@ -51,12 +51,63 @@ const fallbackStore = {
       {
         id: 'med-2',
         sku: 'MED-ATC-J01CR',
-        name: 'Amoxicillin & Clavulanate 625mg',
-        generic_name: 'Amoxicillin + Clavulanate',
+        name: 'Amoxicillin & Potassium Clavulanate 625 mg',
+        generic_name: 'Amoxicillin + Potassium Clavulanate',
         manufacturer: 'GSK',
         category: 'Antibiotic',
-        unit_price: 185.0,
+        unit_price: 22.5,
         reorder_threshold: 25,
+        safety_stock: 15,
+        supplier_lead_time_days: 5,
+        is_prescription_required: true,
+        created_at: new Date().toISOString(),
+      },
+    ],
+    [
+      'med-3',
+      {
+        id: 'med-3',
+        sku: 'MED-AMOX-500',
+        name: 'Amoxicillin 500mg',
+        generic_name: 'Amoxicillin',
+        manufacturer: 'Apotex Health',
+        category: 'Antibiotic',
+        unit_price: 8.0,
+        reorder_threshold: 15,
+        safety_stock: 10,
+        supplier_lead_time_days: 5,
+        is_prescription_required: true,
+        created_at: new Date().toISOString(),
+      },
+    ],
+    [
+      'med-4',
+      {
+        id: 'med-4',
+        sku: 'MED-ATC-R06',
+        name: 'Levocetirizine 5mg',
+        generic_name: 'Levocetirizine',
+        manufacturer: 'UCB Pharma',
+        category: 'Antihistamine',
+        unit_price: 5.0,
+        reorder_threshold: 20,
+        safety_stock: 15,
+        supplier_lead_time_days: 4,
+        is_prescription_required: false,
+        created_at: new Date().toISOString(),
+      },
+    ],
+    [
+      'med-5',
+      {
+        id: 'med-5',
+        sku: 'MED-ATC-M01AB',
+        name: 'Diclofenac Sodium 50mg',
+        generic_name: 'Diclofenac',
+        manufacturer: 'Novartis Pharma',
+        category: 'Anti-inflammatory',
+        unit_price: 6.5,
+        reorder_threshold: 20,
         safety_stock: 15,
         supplier_lead_time_days: 5,
         is_prescription_required: true,
@@ -66,26 +117,74 @@ const fallbackStore = {
   ]),
   inventory: new Map([
     [
-      'inv-1',
+      'inv-1a',
       {
-        id: 'inv-1',
+        id: 'inv-1a',
+        medicine_id: 'med-1',
+        batch_number: 'PARA-2026-A1',
+        quantity: 50,
+        expiry_date: '2026-11-30',
+        location_bin: 'A-11',
+        updated_at: new Date().toISOString(),
+      },
+    ],
+    [
+      'inv-1b',
+      {
+        id: 'inv-1b',
         medicine_id: 'med-1',
         batch_number: 'PARA-2027-B1',
-        quantity: 120,
+        quantity: 100,
         expiry_date: '2027-10-15',
         location_bin: 'A-12',
         updated_at: new Date().toISOString(),
       },
     ],
     [
-      'inv-2',
+      'inv-2a',
       {
-        id: 'inv-2',
+        id: 'inv-2a',
+        medicine_id: 'med-2',
+        batch_number: 'AMX-2026-A1',
+        quantity: 50,
+        expiry_date: '2026-11-30',
+        location_bin: 'B-03',
+        updated_at: new Date().toISOString(),
+      },
+    ],
+    [
+      'inv-2b',
+      {
+        id: 'inv-2b',
         medicine_id: 'med-2',
         batch_number: 'AMX-2027-B1',
-        quantity: 80,
+        quantity: 100,
         expiry_date: '2027-05-20',
         location_bin: 'B-04',
+        updated_at: new Date().toISOString(),
+      },
+    ],
+    [
+      'inv-3',
+      {
+        id: 'inv-3',
+        medicine_id: 'med-3',
+        batch_number: 'AMX500-2027-A',
+        quantity: 5,
+        expiry_date: '2027-06-30',
+        location_bin: 'B-01',
+        updated_at: new Date().toISOString(),
+      },
+    ],
+    [
+      'inv-4',
+      {
+        id: 'inv-4',
+        medicine_id: 'med-4',
+        batch_number: 'LEVO-2028-A1',
+        quantity: 80,
+        expiry_date: '2028-01-31',
+        location_bin: 'C-02',
         updated_at: new Date().toISOString(),
       },
     ],
@@ -183,6 +282,57 @@ const executeFallbackQuery = async (text, params = []) => {
     return { rows: med ? [med] : [], rowCount: med ? 1 : 0 };
   }
 
+  // INVENTORY ALERTS: LOW STOCK
+  if (upper.includes('FROM MEDICINES M') && (upper.includes('HAVING') || upper.includes('REORDER_THRESHOLD'))) {
+    const alerts = [];
+    for (const med of fallbackStore.medicines.values()) {
+      let currentStock = 0;
+      for (const inv of fallbackStore.inventory.values()) {
+        if (inv.medicine_id === med.id) currentStock += Number(inv.quantity || 0);
+      }
+      if (currentStock <= (med.reorder_threshold || 20)) {
+        alerts.push({
+          medicine_id: med.id,
+          sku: med.sku,
+          name: med.name,
+          reorder_threshold: med.reorder_threshold || 20,
+          current_stock: currentStock,
+          status: currentStock === 0 ? 'OUT_OF_STOCK' : 'LOW_STOCK',
+        });
+      }
+    }
+    alerts.sort((a, b) => a.current_stock - b.current_stock);
+    return { rows: alerts, rowCount: alerts.length };
+  }
+
+  // INVENTORY ALERTS: EXPIRING
+  if (upper.includes('FROM INVENTORY I') && upper.includes('JOIN MEDICINES M') && upper.includes('EXPIRY_DATE')) {
+    const daysThreshold = parseInt(params[0] || '90', 10);
+    const now = new Date();
+    const thresholdDate = new Date(now.getTime() + daysThreshold * 86400000);
+    const alerts = [];
+    for (const inv of fallbackStore.inventory.values()) {
+      const exp = new Date(inv.expiry_date);
+      if (exp <= thresholdDate && inv.quantity > 0) {
+        const med = fallbackStore.medicines.get(inv.medicine_id) || {};
+        const daysUntilExpiry = Math.ceil((exp.getTime() - now.getTime()) / 86400000);
+        alerts.push({
+          inventory_id: inv.id,
+          batch_number: inv.batch_number,
+          quantity: inv.quantity,
+          expiry_date: inv.expiry_date,
+          location_bin: inv.location_bin,
+          medicine_id: inv.medicine_id,
+          medicine_name: med.name || 'Medicine',
+          sku: med.sku || 'MED',
+          days_until_expiry: daysUntilExpiry,
+        });
+      }
+    }
+    alerts.sort((a, b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
+    return { rows: alerts, rowCount: alerts.length };
+  }
+
   // INVENTORY: SELECT JOIN MEDICINES
   if (upper.includes('FROM INVENTORY I') && upper.includes('JOIN MEDICINES M')) {
     const rows = Array.from(fallbackStore.inventory.values()).map((inv) => {
@@ -220,13 +370,18 @@ const executeFallbackQuery = async (text, params = []) => {
     return { rows: [], rowCount: 0 };
   }
 
+  // PRESCRIPTIONS: UPDATE STATUS
+  if (upper.startsWith('UPDATE PRESCRIPTIONS')) {
+    return { rows: [{ id: params[0], status: 'dispensed' }], rowCount: 1 };
+  }
+
   // DISPENSATIONS: INSERT
   if (upper.startsWith('INSERT INTO DISPENSATIONS')) {
-    const [inventory_id, prescription_id, dispensed_by, quantity, notes, ip_address] = params;
+    const [prescription_id, inventory_id, dispensed_by, quantity, notes, ip_address] = params;
     const rec = {
       id: `disp-${Date.now()}`,
-      inventory_id,
       prescription_id,
+      inventory_id,
       dispensed_by,
       quantity: Number(quantity),
       notes,
@@ -235,6 +390,12 @@ const executeFallbackQuery = async (text, params = []) => {
     };
     fallbackStore.dispensations.push(rec);
     return { rows: [rec], rowCount: 1 };
+  }
+
+  // DISPENSATIONS: SELECT
+  if (upper.includes('FROM DISPENSATIONS')) {
+    const rows = [...fallbackStore.dispensations].reverse();
+    return { rows, rowCount: rows.length };
   }
 
   // Default empty result

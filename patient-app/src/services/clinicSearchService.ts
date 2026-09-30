@@ -43,9 +43,8 @@ export const clinicSearchService = {
       if (filters?.minRating) params.append('minRating', filters.minRating.toString());
 
       const response = await apiClient.get(`/clinics/discovery?${params.toString()}`);
-      const clinics: Clinic[] = response.data?.clinics || response.data?.results || [];
-
-      if (clinics.length > 0) {
+      if (response.data && (Array.isArray(response.data.clinics) || Array.isArray(response.data.results))) {
+        const clinics: Clinic[] = response.data.clinics || response.data.results || [];
         clinics.forEach((c) => discoveredClinicCache.set(c.id, c));
         return {
           clinics,

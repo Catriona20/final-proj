@@ -34,6 +34,8 @@ export const DoctorTimingCard: React.FC<DoctorTimingCardProps> = ({
     switch (st) {
       case 'In Session':
         return { bg: PALETTE.accent + '20', text: PALETTE.accent, border: PALETTE.accent, dot: PALETTE.accent };
+      case 'Busy':
+        return { bg: '#FEF3C7', text: '#D97706', border: '#F59E0B', dot: '#F59E0B' };
       case 'Available':
         return { bg: PALETTE.successLight, text: PALETTE.success, border: PALETTE.success, dot: PALETTE.success };
       case 'On Break':
@@ -42,6 +44,8 @@ export const DoctorTimingCard: React.FC<DoctorTimingCardProps> = ({
         return { bg: PALETTE.errorLight, text: PALETTE.error, border: PALETTE.error, dot: PALETTE.error };
       case 'Not Started':
         return { bg: '#DBEAFE', text: PALETTE.primary, border: PALETTE.primary, dot: PALETTE.primary };
+      case 'Offline':
+        return { bg: colors.cardSubtle, text: colors.secondaryText, border: colors.border, dot: colors.secondaryText };
       default:
         return { bg: colors.cardSubtle, text: colors.secondaryText, border: colors.border, dot: colors.secondaryText };
     }

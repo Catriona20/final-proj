@@ -24,6 +24,7 @@ export type DoctorAvailabilityStatus =
 export type DoctorTimingStatus =
   | 'Not Started'
   | 'Available'
+  | 'Busy'
   | 'In Session'
   | 'On Break'
   | 'Running Late'
@@ -146,6 +147,8 @@ export interface Doctor {
   wait_time: string;
   is_available_today: boolean;
   status: DoctorAvailabilityStatus;
+  liveStatus?: DoctorAvailabilityStatus;
+  live_status?: DoctorAvailabilityStatus;
   languages: string[];
   consultation_fee: string;
   is_preferred?: boolean;
@@ -342,10 +345,12 @@ export interface AvailabilityRequest {
   doctor_name: string;
   specialty: string;
   date: string;
+  requested_date?: string;
   start_time: string;
   end_time: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   notes?: string;
   requested_by?: string;
   created_at?: string;
+  updated_at?: string;
 }

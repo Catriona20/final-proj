@@ -220,9 +220,10 @@ router.post('/dispense-prescription', async (req: Request, res: Response): Promi
 });
 
 // GET /api/pharmacy/low-stock
-router.get('/low-stock', async (_req: Request, res: Response): Promise<void> => {
+router.get('/low-stock', async (req: Request, res: Response): Promise<void> => {
   try {
-    const alerts = await pharmacyService.getLowStockAlerts();
+    const clinicId = (req.query.clinicId || req.query.clinic_id) as string | undefined;
+    const alerts = await pharmacyService.getLowStockAlerts(clinicId);
     res.json({
       success: true,
       count: alerts.length,

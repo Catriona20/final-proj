@@ -87,17 +87,54 @@ export const ClinicDetailScreen: React.FC = () => {
         fetchClinicDoctors();
       }
     };
+
+    const handleStatusUpdate = (data: any) => {
+      const cId = data?.clinic_id || data?.clinicId;
+      const dId = data?.doctor_id || data?.doctorId;
+      const newStatus = (data?.status || '').toUpperCase();
+      if (!cId || cId === clinic?.id || cId === 'all') {
+        if (dId && newStatus) {
+          // Optimistic local update — immediately reflect the new live status.
+          // fetchClinicDoctors() below will sync the definitive state from backend
+          // (which now correctly computes finalStatus from approved schedule + live status).
+          setClinicDoctors((prev) =>
+            prev.map((doc) => {
+              if (doc.id === dId || (doc as any).doctor_id === dId) {
+                return {
+                  ...doc,
+                  status: newStatus,
+                  liveStatus: newStatus,
+                  // Only mark available if both live status is AVAILABLE AND doctor has approved schedule
+                  isAvailableToday: newStatus === 'AVAILABLE' && Boolean(doc.hasApprovedSchedule),
+                };
+              }
+              return doc;
+            })
+          );
+        }
+        fetchClinicDoctors();
+      }
+    };
+
+    socketService.subscribe('doctor:status_updated', handleStatusUpdate);
     socketService.subscribe('doctor:availability_updated', handleAvailUpdate);
     socketService.subscribe('doctor:availability_changed', handleAvailUpdate);
     socketService.subscribe('availability_request:approved', handleAvailUpdate);
     socketService.subscribe('availability_request:rejected', handleAvailUpdate);
+    // Also refresh when a clinic schedule is activated or slots change
+    socketService.subscribe('clinic:schedule_updated', handleAvailUpdate);
+    socketService.subscribe('appointment:slot_activated', handleAvailUpdate);
     return () => {
+      socketService.unsubscribe('doctor:status_updated', handleStatusUpdate);
       socketService.unsubscribe('doctor:availability_updated', handleAvailUpdate);
       socketService.unsubscribe('doctor:availability_changed', handleAvailUpdate);
       socketService.unsubscribe('availability_request:approved', handleAvailUpdate);
       socketService.unsubscribe('availability_request:rejected', handleAvailUpdate);
+      socketService.unsubscribe('clinic:schedule_updated', handleAvailUpdate);
+      socketService.unsubscribe('appointment:slot_activated', handleAvailUpdate);
     };
   }, [clinic?.id]);
+
 
   const doctors = clinicDoctors.length > 0
     ? clinicDoctors
@@ -385,6 +422,8 @@ export const ClinicDetailScreen: React.FC = () => {
             <View style={styles.doctorsList}>
               {filteredDoctors.map((doc) => {
                 const isAvailable = Boolean(doc.isAvailableToday && doc.status === 'AVAILABLE');
+                const isBusy = doc.status === 'BUSY';
+                const isOffline = !isAvailable && !isBusy;
                 return (
                   <View
                     key={doc.id}
@@ -406,9 +445,13 @@ export const ClinicDetailScreen: React.FC = () => {
                             {
                               backgroundColor: isAvailable
                                 ? isDark ? 'rgba(16,185,129,0.15)' : '#DCFCE7'
+                                : isBusy
+                                ? isDark ? 'rgba(245,158,11,0.15)' : '#FEF3C7'
                                 : isDark ? 'rgba(100,116,139,0.18)' : '#F1F5F9',
                               borderColor: isAvailable
                                 ? isDark ? 'rgba(16,185,129,0.3)' : '#86EFAC'
+                                : isBusy
+                                ? isDark ? 'rgba(245,158,11,0.35)' : '#FCD34D'
                                 : isDark ? 'rgba(100,116,139,0.25)' : '#CBD5E1',
                             },
                           ]}
@@ -416,16 +459,28 @@ export const ClinicDetailScreen: React.FC = () => {
                           <View
                             style={[
                               styles.statusDot,
-                              { backgroundColor: isAvailable ? (isDark ? '#34D399' : '#16A34A') : (isDark ? '#94A3B8' : '#64748B') },
+                              {
+                                backgroundColor: isAvailable
+                                  ? (isDark ? '#34D399' : '#16A34A')
+                                  : isBusy
+                                  ? (isDark ? '#FBBF24' : '#D97706')
+                                  : (isDark ? '#94A3B8' : '#64748B'),
+                              },
                             ]}
                           />
                           <Text
                             style={[
                               styles.statusBadgeText,
-                              { color: isAvailable ? (isDark ? '#34D399' : '#15803D') : (isDark ? '#94A3B8' : '#64748B') },
+                              {
+                                color: isAvailable
+                                  ? (isDark ? '#34D399' : '#15803D')
+                                  : isBusy
+                                  ? (isDark ? '#FBBF24' : '#B45309')
+                                  : (isDark ? '#94A3B8' : '#64748B'),
+                              },
                             ]}
                           >
-                            {isAvailable ? 'AVAILABLE' : 'NOT SCHEDULED / OFFLINE'}
+                            {isAvailable ? 'AVAILABLE' : isBusy ? 'BUSY' : 'NOT AVAILABLE / OFFLINE'}
                           </Text>
                         </View>
                       </View>
@@ -472,10 +527,10 @@ export const ClinicDetailScreen: React.FC = () => {
                           <Text
                             style={[
                               styles.unavailableDocBtnText,
-                              { color: isDark ? '#94A3B8' : '#64748B' },
+                              { color: isBusy ? (isDark ? '#FBBF24' : '#B45309') : (isDark ? '#94A3B8' : '#64748B') },
                             ]}
                           >
-                            Not Available
+                            {isBusy ? 'Busy' : 'Not Available'}
                           </Text>
                         </View>
                       )}

@@ -120,6 +120,174 @@ export const initialPatients: Patient[] = [
     notes: 'Gynecology patient.'
   },
   {
+    id: 'pat-demo-09',
+    name: 'Rahul Menon',
+    phone: '+91 9000000009',
+    age: 33,
+    gender: 'Male',
+    email: 'patient09@demo.medlink.test',
+    address: '55, Kutchery Road, Mylapore, Chennai',
+    lastVisit: '28 Aug 2026',
+    status: 'Active',
+    bloodGroup: 'O-',
+    emergencyContact: 'Deepa Menon (Sister) - +91 9000000099',
+    notes: 'Dentistry patient.'
+  },
+  {
+    id: 'pat-demo-10',
+    name: 'Priya Balaji',
+    phone: '+91 9000000010',
+    age: 58,
+    gender: 'Female',
+    email: 'patient10@demo.medlink.test',
+    address: '82, OMR Phase 1, Perungudi, Chennai',
+    lastVisit: '27 Aug 2026',
+    status: 'Active',
+    bloodGroup: 'B+',
+    emergencyContact: 'Balaji Varadan (Spouse) - +91 9000000010',
+    notes: 'Cardiology patient.'
+  },
+  {
+    id: 'pat-demo-11',
+    name: 'Nithya Raj',
+    phone: '+91 9000000011',
+    age: 27,
+    gender: 'Female',
+    email: 'patient11@demo.medlink.test',
+    address: '104, Rajiv Gandhi Salai, Thoraipakkam, Chennai',
+    lastVisit: '26 Aug 2026',
+    status: 'Active',
+    bloodGroup: 'A+',
+    emergencyContact: 'Rajasekar M (Father) - +91 9000000011',
+    notes: 'General Medicine patient.'
+  },
+  {
+    id: 'pat-demo-12',
+    name: 'Sanjay Prakash',
+    phone: '+91 9000000012',
+    age: 49,
+    gender: 'Male',
+    email: 'patient12@demo.medlink.test',
+    address: '33, Medavakkam High Road, Sholinganallur, Chennai',
+    lastVisit: '25 Aug 2026',
+    status: 'Active',
+    bloodGroup: 'O+',
+    emergencyContact: 'Usha Prakash (Spouse) - +91 9000000012',
+    notes: 'Orthopedics patient.'
+  },
+  {
+    id: 'pat-demo-13',
+    name: 'Deepa Sundaram',
+    phone: '+91 9000000013',
+    age: 34,
+    gender: 'Female',
+    email: 'patient13@demo.medlink.test',
+    address: '18, GST Road, West Tambaram, Chennai',
+    lastVisit: '24 Aug 2026',
+    status: 'Active',
+    bloodGroup: 'B+',
+    emergencyContact: 'Sundaram V (Father) - +91 9000000013',
+    notes: 'Dermatology patient.'
+  },
+  {
+    id: 'pat-demo-14',
+    name: 'Vikram Seth',
+    phone: '+91 9000000014',
+    age: 44,
+    gender: 'Male',
+    email: 'patient14@demo.medlink.test',
+    address: '47, Radha Nagar Main Rd, Chromepet, Chennai',
+    lastVisit: '23 Aug 2026',
+    status: 'Active',
+    bloodGroup: 'AB-',
+    emergencyContact: 'Deepak Seth (Brother) - +91 9000000014',
+    notes: 'ENT patient.'
+  },
+  {
+    id: 'pat-demo-15',
+    name: 'Sunita Reddy',
+    phone: '+91 9000000015',
+    age: 61,
+    gender: 'Female',
+    email: 'patient15@demo.medlink.test',
+    address: '12, Race Course Road, Guindy, Chennai',
+    lastVisit: '22 Aug 2026',
+    status: 'Active',
+    bloodGroup: 'A+',
+    emergencyContact: 'Varun Reddy (Son) - +91 9000000015',
+    notes: 'Cardiology patient.'
+  },
+  {
+    id: 'pat-demo-16',
+    name: 'Suresh Menon',
+    phone: '+91 9000000016',
+    age: 63,
+    gender: 'Male',
+    email: 'patient16@demo.medlink.test',
+    address: '25, Ormes Road, Kilpauk, Chennai',
+    lastVisit: '21 Aug 2026',
+    status: 'Active',
+    bloodGroup: 'B+',
+    emergencyContact: 'Radhika Menon (Spouse) - +91 9000000016',
+    notes: 'General Medicine patient.'
+  },
+  {
+    id: 'pat-demo-17',
+    name: 'Neha Agarwal',
+    phone: '+91 9000000017',
+    age: 30,
+    gender: 'Female',
+    email: 'patient17@demo.medlink.test',
+    address: '71, Whites Road, Royapettah, Chennai',
+    lastVisit: '20 Aug 2026',
+    status: 'Active',
+    bloodGroup: 'O-',
+    emergencyContact: 'Sangeeta Agarwal (Mother) - +91 9000000017',
+    notes: 'Gynecology patient.'
+  },
+  {
+    id: 'pat-demo-18',
+    name: 'Arjun Rao',
+    phone: '+91 9000000018',
+    age: 36,
+    gender: 'Male',
+    email: 'patient18@demo.medlink.test',
+    address: '15, 5th Avenue, Besant Nagar, Chennai',
+    lastVisit: '19 Aug 2026',
+    status: 'Active',
+    bloodGroup: 'A+',
+    emergencyContact: 'Priya Rao (Sister) - +91 9000000018',
+    notes: 'Ophthalmology patient.'
+  },
+  {
+    id: 'pat-demo-19',
+    name: 'Kavita Deshmukh',
+    phone: '+91 9000000019',
+    age: 41,
+    gender: 'Female',
+    email: 'patient19@demo.medlink.test',
+    address: '22, East Coast Road, Thiruvanmiyur, Chennai',
+    lastVisit: '18 Aug 2026',
+    status: 'Active',
+    bloodGroup: 'AB+',
+    emergencyContact: 'Nitin Deshmukh (Spouse) - +91 9000000019',
+    notes: 'Neurology patient.'
+  },
+  {
+    id: 'pat-demo-20',
+    name: 'Manoj Pillai',
+    phone: '+91 9000000020',
+    age: 52,
+    gender: 'Male',
+    email: 'patient20@demo.medlink.test',
+    address: '93, MTH Road, Ambattur Industrial Estate, Chennai',
+    lastVisit: '17 Aug 2026',
+    status: 'Active',
+    bloodGroup: 'B-',
+    emergencyContact: 'Usha Pillai (Spouse) - +91 9000000020',
+    notes: 'Pediatrics patient.'
+  },
+  {
     id: 'PAT001',
     name: 'Rahul Kumar',
     phone: '+1 (555) 234-5678',
@@ -633,12 +801,22 @@ export const computeSummary = (
   };
 
   const todayApts = appointments.filter(isToday);
-  const total = todayApts.length;
-  const remaining = todayApts.filter((a) => a.status === 'BOOKED' || a.status === 'WAITING').length;
-  const checkedIn = todayApts.filter(
-    (a) => a.status === 'CHECKED_IN' || a.status === 'IN_CONSULTATION'
+  const total = todayApts.filter(
+    (a) => !['CANCELLED', 'CANCELED', 'NO_SHOW'].includes(a.status?.toUpperCase() || '')
   ).length;
-  const waiting = queue.filter((q) => q.status === 'WAITING').length;
+  const remaining = todayApts.filter(
+    (a) =>
+      !['CANCELLED', 'CANCELED', 'COMPLETED', 'NO_SHOW'].includes(a.status?.toUpperCase() || '') &&
+      (a.status === 'BOOKED' || a.status === 'WAITING' || a.status === 'CHECKED_IN')
+  ).length;
+  const checkedIn = todayApts.filter(
+    (a) =>
+      (a.status === 'CHECKED_IN' || a.status === 'IN_CONSULTATION') &&
+      !['CANCELLED', 'CANCELED', 'NO_SHOW'].includes(a.status?.toUpperCase() || '')
+  ).length;
+  const waiting = queue.filter(
+    (q) => q.status === 'WAITING' && !['CANCELLED', 'CANCELED'].includes((q as any).appointmentStatus || '')
+  ).length;
   const available = doctors.filter((d) => d.status === 'AVAILABLE' || (d.status as string) !== 'OFFLINE').length;
 
   return {

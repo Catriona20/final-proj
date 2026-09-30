@@ -280,55 +280,27 @@ export const timeService = {
 
   /**
    * Checks whether cancellation is permissible by policy.
-   * Policy: Not cancellable after checked in, in consultation, or completed.
+   * Policy: Not cancellable while in active consultation, or after completed/no-show/cancelled.
+   * Patients in Waiting or Checked In state are permitted to cancel prior to consultation.
    */
   isCancellationAllowed(
     status: string,
-    dateStr: string,
-    timeStr: string,
+    dateStr?: string,
+    timeStr?: string,
     cutoffMinutes: number = 60
   ): { allowed: boolean; reason?: string } {
-    const normStatus = status.toUpperCase().replace(/[\s_-]+/g, '');
-    if (['CHECKEDIN', 'ARRIVED'].includes(normStatus)) {
-      return { allowed: false, reason: 'Cannot cancel an appointment after patient has checked in.' };
-    }
+    const normStatus = (status || '').toUpperCase().replace(/[\s_-]+/g, '');
     if (['INCONSULTATION', 'INSESSION'].includes(normStatus)) {
       return { allowed: false, reason: 'Cannot cancel an appointment currently in consultation.' };
     }
     if (['COMPLETED'].includes(normStatus)) {
       return { allowed: false, reason: 'Cannot cancel a completed consultation.' };
     }
-    if (['CANCELLED'].includes(normStatus)) {
+    if (['CANCELLED', 'CANCELED'].includes(normStatus)) {
       return { allowed: false, reason: 'Appointment is already cancelled.' };
     }
-    if (['NOSHOW'].includes(normStatus)) {
+    if (['NOSHOW', 'NO_SHOW'].includes(normStatus)) {
       return { allowed: false, reason: 'Cannot cancel an appointment marked as no-show.' };
-    }
-
-    // Check cutoff if same day
-    const normDate = this.normalizeDateString(dateStr);
-    const today = this.getTodayDateString();
-
-    if (normDate === today) {
-      const cleanTime = this.normalizeTimeString(timeStr);
-      const isPM = cleanTime.toUpperCase().includes('PM');
-      const isAM = cleanTime.toUpperCase().includes('AM');
-      const parts = cleanTime.replace(/[^\d:]/g, '').split(':');
-      let slotHour = parseInt(parts[0], 10) || 0;
-      const slotMin = parseInt(parts[1], 10) || 0;
-      if (isPM && slotHour < 12) slotHour += 12;
-      if (isAM && slotHour === 12) slotHour = 0;
-
-      const slotTotalMinutes = slotHour * 60 + slotMin;
-      const cutoffTime = slotTotalMinutes - cutoffMinutes;
-
-      const currentTotalMinutes = this.getCurrentClinicDate().getHours() * 60 + this.getCurrentClinicDate().getMinutes();
-      if (currentTotalMinutes > cutoffTime && currentTotalMinutes >= slotTotalMinutes) {
-        return {
-          allowed: false,
-          reason: 'Cancellation window has closed (cutoff is 1 hour prior to appointment).',
-        };
-      }
     }
 
     return { allowed: true };

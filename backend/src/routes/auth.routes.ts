@@ -177,7 +177,43 @@ export const DEMO_PATIENT_OTPS: Record<string, string> = {
   'patient08@demo.medlink.test': '100008',
   '+91 9000000008': '100008',
   '9000000008': '100008',
-  // Clinic Assistants
+  'patient09@demo.medlink.test': '100009',
+  '+91 9000000009': '100009',
+  '9000000009': '100009',
+  'patient10@demo.medlink.test': '100010',
+  '+91 9000000010': '100010',
+  '9000000010': '100010',
+  'patient11@demo.medlink.test': '100011',
+  '+91 9000000011': '100011',
+  '9000000011': '100011',
+  'patient12@demo.medlink.test': '100012',
+  '+91 9000000012': '100012',
+  '9000000012': '100012',
+  'patient13@demo.medlink.test': '100013',
+  '+91 9000000013': '100013',
+  '9000000013': '100013',
+  'patient14@demo.medlink.test': '100014',
+  '+91 9000000014': '100014',
+  '9000000014': '100014',
+  'patient15@demo.medlink.test': '100015',
+  '+91 9000000015': '100015',
+  '9000000015': '100015',
+  'patient16@demo.medlink.test': '100016',
+  '+91 9000000016': '100016',
+  '9000000016': '100016',
+  'patient17@demo.medlink.test': '100017',
+  '+91 9000000017': '100017',
+  '9000000017': '100017',
+  'patient18@demo.medlink.test': '100018',
+  '+91 9000000018': '100018',
+  '9000000018': '100018',
+  'patient19@demo.medlink.test': '100019',
+  '+91 9000000019': '100019',
+  '9000000019': '100019',
+  'patient20@demo.medlink.test': '100020',
+  '+91 9000000020': '100020',
+  '9000000020': '100020',
+  // Clinic Assistants (all 20 demo accounts)
   'assistant01@demo.medlink.test': '300001',
   '+91 9000000021': '300001',
   '9000000021': '300001',
@@ -196,6 +232,48 @@ export const DEMO_PATIENT_OTPS: Record<string, string> = {
   'assistant06@demo.medlink.test': '300006',
   '+91 9000000026': '300006',
   '9000000026': '300006',
+  'assistant07@demo.medlink.test': '300007',
+  '+91 9000000027': '300007',
+  '9000000027': '300007',
+  'assistant08@demo.medlink.test': '300008',
+  '+91 9000000028': '300008',
+  '9000000028': '300008',
+  'assistant09@demo.medlink.test': '300009',
+  '+91 9000000029': '300009',
+  '9000000029': '300009',
+  'assistant10@demo.medlink.test': '300010',
+  '+91 9000000030': '300010',
+  '9000000030': '300010',
+  'assistant11@demo.medlink.test': '300011',
+  '+91 9000000031': '300011',
+  '9000000031': '300011',
+  'assistant12@demo.medlink.test': '300012',
+  '+91 9000000032': '300012',
+  '9000000032': '300012',
+  'assistant13@demo.medlink.test': '300013',
+  '+91 9000000033': '300013',
+  '9000000033': '300013',
+  'assistant14@demo.medlink.test': '300014',
+  '+91 9000000034': '300014',
+  '9000000034': '300014',
+  'assistant15@demo.medlink.test': '300015',
+  '+91 9000000035': '300015',
+  '9000000035': '300015',
+  'assistant16@demo.medlink.test': '300016',
+  '+91 9000000036': '300016',
+  '9000000036': '300016',
+  'assistant17@demo.medlink.test': '300017',
+  '+91 9000000037': '300017',
+  '9000000037': '300017',
+  'assistant18@demo.medlink.test': '300018',
+  '+91 9000000038': '300018',
+  '9000000038': '300018',
+  'assistant19@demo.medlink.test': '300019',
+  '+91 9000000039': '300019',
+  '9000000039': '300019',
+  'assistant20@demo.medlink.test': '300020',
+  '+91 9000000040': '300020',
+  '9000000040': '300020',
 };
 
 export const DEMO_PATIENTS_CONFIG: Record<string, {
@@ -227,6 +305,30 @@ export const DEMO_PATIENTS_CONFIG: Record<string, {
   '+91 9000000007': { id: 'pat-demo-07', name: 'Rahul Verma', email: 'patient07@demo.medlink.test', phone: '+91 9000000007', blood_group: 'A-', age: 38, gender: 'Male', address: '77, Chamiers Road, R.A. Puram, Chennai', emergency_contact: '+91 9000000097', preferred_specialization: 'Orthopedics', preferred_doctor: 'Dr. Aditya Rao' },
   'patient08@demo.medlink.test': { id: 'pat-demo-08', name: 'Pooja Nair', email: 'patient08@demo.medlink.test', phone: '+91 9000000008', blood_group: 'B+', age: 26, gender: 'Female', address: '33, Ormes Road, Kilpauk, Chennai', emergency_contact: '+91 9000000098', preferred_specialization: 'Gynecology', preferred_doctor: 'Dr. Radha Sundaram' },
   '+91 9000000008': { id: 'pat-demo-08', name: 'Pooja Nair', email: 'patient08@demo.medlink.test', phone: '+91 9000000008', blood_group: 'B+', age: 26, gender: 'Female', address: '33, Ormes Road, Kilpauk, Chennai', emergency_contact: '+91 9000000098', preferred_specialization: 'Gynecology', preferred_doctor: 'Dr. Radha Sundaram' },
+  'patient09@demo.medlink.test': { id: 'pat-demo-09', name: 'Rahul Menon', email: 'patient09@demo.medlink.test', phone: '+91 9000000009', blood_group: 'O-', age: 33, gender: 'Male', address: '55, Kutchery Road, Mylapore, Chennai', emergency_contact: '+91 9000000099', preferred_specialization: 'Dentistry', preferred_doctor: 'Dr. Arun Kumar' },
+  '+91 9000000009': { id: 'pat-demo-09', name: 'Rahul Menon', email: 'patient09@demo.medlink.test', phone: '+91 9000000009', blood_group: 'O-', age: 33, gender: 'Male', address: '55, Kutchery Road, Mylapore, Chennai', emergency_contact: '+91 9000000099', preferred_specialization: 'Dentistry', preferred_doctor: 'Dr. Arun Kumar' },
+  'patient10@demo.medlink.test': { id: 'pat-demo-10', name: 'Priya Balaji', email: 'patient10@demo.medlink.test', phone: '+91 9000000010', blood_group: 'B+', age: 58, gender: 'Female', address: '82, OMR Phase 1, Perungudi, Chennai', emergency_contact: '+91 9000000010', preferred_specialization: 'Cardiology', preferred_doctor: 'Dr. Karthik Raman' },
+  '+91 9000000010': { id: 'pat-demo-10', name: 'Priya Balaji', email: 'patient10@demo.medlink.test', phone: '+91 9000000010', blood_group: 'B+', age: 58, gender: 'Female', address: '82, OMR Phase 1, Perungudi, Chennai', emergency_contact: '+91 9000000010', preferred_specialization: 'Cardiology', preferred_doctor: 'Dr. Karthik Raman' },
+  'patient11@demo.medlink.test': { id: 'pat-demo-11', name: 'Nithya Raj', email: 'patient11@demo.medlink.test', phone: '+91 9000000011', blood_group: 'A+', age: 27, gender: 'Female', address: '104, Rajiv Gandhi Salai, Thoraipakkam, Chennai', emergency_contact: '+91 9000000011', preferred_specialization: 'General Medicine', preferred_doctor: 'Dr. Priya Sharma' },
+  '+91 9000000011': { id: 'pat-demo-11', name: 'Nithya Raj', email: 'patient11@demo.medlink.test', phone: '+91 9000000011', blood_group: 'A+', age: 27, gender: 'Female', address: '104, Rajiv Gandhi Salai, Thoraipakkam, Chennai', emergency_contact: '+91 9000000011', preferred_specialization: 'General Medicine', preferred_doctor: 'Dr. Priya Sharma' },
+  'patient12@demo.medlink.test': { id: 'pat-demo-12', name: 'Sanjay Prakash', email: 'patient12@demo.medlink.test', phone: '+91 9000000012', blood_group: 'O+', age: 49, gender: 'Male', address: '33, Medavakkam High Road, Sholinganallur, Chennai', emergency_contact: '+91 9000000012', preferred_specialization: 'Orthopedics', preferred_doctor: 'Dr. Aditya Rao' },
+  '+91 9000000012': { id: 'pat-demo-12', name: 'Sanjay Prakash', email: 'patient12@demo.medlink.test', phone: '+91 9000000012', blood_group: 'O+', age: 49, gender: 'Male', address: '33, Medavakkam High Road, Sholinganallur, Chennai', emergency_contact: '+91 9000000012', preferred_specialization: 'Orthopedics', preferred_doctor: 'Dr. Aditya Rao' },
+  'patient13@demo.medlink.test': { id: 'pat-demo-13', name: 'Deepa Sundaram', email: 'patient13@demo.medlink.test', phone: '+91 9000000013', blood_group: 'B+', age: 34, gender: 'Female', address: '18, GST Road, West Tambaram, Chennai', emergency_contact: '+91 9000000013', preferred_specialization: 'Dermatology', preferred_doctor: 'Dr. Priya Nair' },
+  '+91 9000000013': { id: 'pat-demo-13', name: 'Deepa Sundaram', email: 'patient13@demo.medlink.test', phone: '+91 9000000013', blood_group: 'B+', age: 34, gender: 'Female', address: '18, GST Road, West Tambaram, Chennai', emergency_contact: '+91 9000000013', preferred_specialization: 'Dermatology', preferred_doctor: 'Dr. Priya Nair' },
+  'patient14@demo.medlink.test': { id: 'pat-demo-14', name: 'Vikram Seth', email: 'patient14@demo.medlink.test', phone: '+91 9000000014', blood_group: 'AB-', age: 44, gender: 'Male', address: '47, Radha Nagar Main Rd, Chromepet, Chennai', emergency_contact: '+91 9000000014', preferred_specialization: 'ENT', preferred_doctor: 'Dr. Venkat Raman' },
+  '+91 9000000014': { id: 'pat-demo-14', name: 'Vikram Seth', email: 'patient14@demo.medlink.test', phone: '+91 9000000014', blood_group: 'AB-', age: 44, gender: 'Male', address: '47, Radha Nagar Main Rd, Chromepet, Chennai', emergency_contact: '+91 9000000014', preferred_specialization: 'ENT', preferred_doctor: 'Dr. Venkat Raman' },
+  'patient15@demo.medlink.test': { id: 'pat-demo-15', name: 'Sunita Reddy', email: 'patient15@demo.medlink.test', phone: '+91 9000000015', blood_group: 'A+', age: 61, gender: 'Female', address: '12, Race Course Road, Guindy, Chennai', emergency_contact: '+91 9000000015', preferred_specialization: 'Cardiology', preferred_doctor: 'Dr. Karthik Raman' },
+  '+91 9000000015': { id: 'pat-demo-15', name: 'Sunita Reddy', email: 'patient15@demo.medlink.test', phone: '+91 9000000015', blood_group: 'A+', age: 61, gender: 'Female', address: '12, Race Course Road, Guindy, Chennai', emergency_contact: '+91 9000000015', preferred_specialization: 'Cardiology', preferred_doctor: 'Dr. Karthik Raman' },
+  'patient16@demo.medlink.test': { id: 'pat-demo-16', name: 'Suresh Menon', email: 'patient16@demo.medlink.test', phone: '+91 9000000016', blood_group: 'B+', age: 63, gender: 'Male', address: '25, Ormes Road, Kilpauk, Chennai', emergency_contact: '+91 9000000016', preferred_specialization: 'General Medicine', preferred_doctor: 'Dr. Priya Sharma' },
+  '+91 9000000016': { id: 'pat-demo-16', name: 'Suresh Menon', email: 'patient16@demo.medlink.test', phone: '+91 9000000016', blood_group: 'B+', age: 63, gender: 'Male', address: '25, Ormes Road, Kilpauk, Chennai', emergency_contact: '+91 9000000016', preferred_specialization: 'General Medicine', preferred_doctor: 'Dr. Priya Sharma' },
+  'patient17@demo.medlink.test': { id: 'pat-demo-17', name: 'Neha Agarwal', email: 'patient17@demo.medlink.test', phone: '+91 9000000017', blood_group: 'O-', age: 30, gender: 'Female', address: '71, Whites Road, Royapettah, Chennai', emergency_contact: '+91 9000000017', preferred_specialization: 'Gynecology', preferred_doctor: 'Dr. Radha Sundaram' },
+  '+91 9000000017': { id: 'pat-demo-17', name: 'Neha Agarwal', email: 'patient17@demo.medlink.test', phone: '+91 9000000017', blood_group: 'O-', age: 30, gender: 'Female', address: '71, Whites Road, Royapettah, Chennai', emergency_contact: '+91 9000000017', preferred_specialization: 'Gynecology', preferred_doctor: 'Dr. Radha Sundaram' },
+  'patient18@demo.medlink.test': { id: 'pat-demo-18', name: 'Arjun Rao', email: 'patient18@demo.medlink.test', phone: '+91 9000000018', blood_group: 'A+', age: 36, gender: 'Male', address: '15, 5th Avenue, Besant Nagar, Chennai', emergency_contact: '+91 9000000018', preferred_specialization: 'Ophthalmology', preferred_doctor: 'Dr. Ramesh Chandran' },
+  '+91 9000000018': { id: 'pat-demo-18', name: 'Arjun Rao', email: 'patient18@demo.medlink.test', phone: '+91 9000000018', blood_group: 'A+', age: 36, gender: 'Male', address: '15, 5th Avenue, Besant Nagar, Chennai', emergency_contact: '+91 9000000018', preferred_specialization: 'Ophthalmology', preferred_doctor: 'Dr. Ramesh Chandran' },
+  'patient19@demo.medlink.test': { id: 'pat-demo-19', name: 'Kavita Deshmukh', email: 'patient19@demo.medlink.test', phone: '+91 9000000019', blood_group: 'AB+', age: 41, gender: 'Female', address: '22, East Coast Road, Thiruvanmiyur, Chennai', emergency_contact: '+91 9000000019', preferred_specialization: 'Neurology', preferred_doctor: 'Dr. Arvind Swaminathan' },
+  '+91 9000000019': { id: 'pat-demo-19', name: 'Kavita Deshmukh', email: 'patient19@demo.medlink.test', phone: '+91 9000000019', blood_group: 'AB+', age: 41, gender: 'Female', address: '22, East Coast Road, Thiruvanmiyur, Chennai', emergency_contact: '+91 9000000019', preferred_specialization: 'Neurology', preferred_doctor: 'Dr. Arvind Swaminathan' },
+  'patient20@demo.medlink.test': { id: 'pat-demo-20', name: 'Manoj Pillai', email: 'patient20@demo.medlink.test', phone: '+91 9000000020', blood_group: 'B-', age: 52, gender: 'Male', address: '93, MTH Road, Ambattur Industrial Estate, Chennai', emergency_contact: '+91 9000000020', preferred_specialization: 'Pediatrics', preferred_doctor: 'Dr. Kavitha Reddy' },
+  '+91 9000000020': { id: 'pat-demo-20', name: 'Manoj Pillai', email: 'patient20@demo.medlink.test', phone: '+91 9000000020', blood_group: 'B-', age: 52, gender: 'Male', address: '93, MTH Road, Ambattur Industrial Estate, Chennai', emergency_contact: '+91 9000000020', preferred_specialization: 'Pediatrics', preferred_doctor: 'Dr. Kavitha Reddy' },
 };
 
 export const DEMO_DOCTOR_OTPS: Record<string, string> = {
@@ -248,9 +350,49 @@ export const DEMO_DOCTOR_OTPS: Record<string, string> = {
   'doctor06@demo.medlink.test': '200006',
   '+91 9000000016': '200006',
   '9000000016': '200006',
-  'dr.suresh.demo@medlink.test': '200009',
+  'doctor07@demo.medlink.test': '200007',
+  '+91 9000000017': '200007',
+  '9000000017': '200007',
+  'doctor08@demo.medlink.test': '200008',
+  '+91 9000000018': '200008',
+  '9000000018': '200008',
+  'doctor09@demo.medlink.test': '200009',
   '+91 9000000019': '200009',
   '9000000019': '200009',
+  'doctor10@demo.medlink.test': '200010',
+  '+91 9000000020': '200010',
+  '9000000020': '200010',
+  'doctor11@demo.medlink.test': '200011',
+  '+91 9000000021': '200011',
+  '9000000021': '200011',
+  'doctor12@demo.medlink.test': '200012',
+  '+91 9000000022': '200012',
+  '9000000022': '200012',
+  'doctor13@demo.medlink.test': '200013',
+  '+91 9000000023': '200013',
+  '9000000023': '200013',
+  'doctor14@demo.medlink.test': '200014',
+  '+91 9000000024': '200014',
+  '9000000024': '200014',
+  'doctor15@demo.medlink.test': '200015',
+  '+91 9000000025': '200015',
+  '9000000025': '200015',
+  'doctor16@demo.medlink.test': '200016',
+  '+91 9000000026': '200016',
+  '9000000026': '200016',
+  'doctor17@demo.medlink.test': '200017',
+  '+91 9000000027': '200017',
+  '9000000027': '200017',
+  'doctor18@demo.medlink.test': '200018',
+  '+91 9000000028': '200018',
+  '9000000028': '200018',
+  'doctor19@demo.medlink.test': '200019',
+  '+91 9000000029': '200019',
+  '9000000029': '200019',
+  'doctor20@demo.medlink.test': '200020',
+  '+91 9000000030': '200020',
+  '9000000030': '200020',
+  'dr.suresh.demo@medlink.test': '200009',
 };
 
 // POST /api/auth/verify-otp (Unified verification endpoint)
@@ -321,41 +463,8 @@ authRouter.post('/verify-otp', async (req: Request, res: Response): Promise<void
         patient = await PatientModel.findByPhone(phoneOrEmail);
       }
       if (!patient) {
-        const cleanKey = phoneOrEmail.trim().toLowerCase();
-        const demoCfg = DEMO_PATIENTS_CONFIG[cleanKey] || DEMO_PATIENTS_CONFIG[phoneOrEmail];
-        const hash = await bcrypt.hash('password123', 10);
-        if (demoCfg) {
-          patient = await PatientModel.create({
-            id: demoCfg.id,
-            name: demoCfg.name,
-            email: demoCfg.email,
-            phone: demoCfg.phone,
-            password_hash: hash,
-            blood_group: demoCfg.blood_group,
-            age: demoCfg.age,
-            gender: demoCfg.gender,
-            address: demoCfg.address,
-            emergency_contact: demoCfg.emergency_contact,
-            preferred_specialization: demoCfg.preferred_specialization,
-            preferred_doctor: demoCfg.preferred_doctor,
-            notifications_enabled: true,
-            theme_preference: 'system',
-          });
-        } else {
-          patient = await PatientModel.create({
-            name: 'Sneha Patel',
-            email: phoneOrEmail.includes('@') ? phoneOrEmail : 'patient02@demo.medlink.test',
-            phone: !phoneOrEmail.includes('@') ? phoneOrEmail : '+91 9000000002',
-            password_hash: hash,
-            blood_group: 'O+',
-            age: 29,
-            gender: 'Female',
-            address: '12, Gandhi Nagar 1st Main Rd, Adyar, Chennai',
-            emergency_contact: '+91 9000000092',
-            notifications_enabled: true,
-            theme_preference: 'system',
-          });
-        }
+        res.status(404).json({ success: false, error: 'Patient account not found in database.' });
+        return;
       }
     }
 
@@ -389,45 +498,7 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    let patient = await PatientModel.findByEmail(cleanEmail);
-    if (!patient && (DEMO_PATIENT_OTPS[cleanEmail] || cleanEmail.startsWith('patient'))) {
-      const demoCfg = DEMO_PATIENTS_CONFIG[cleanEmail];
-      const hash = await bcrypt.hash(password || 'Demo@1001', 10);
-      if (demoCfg) {
-        patient = await PatientModel.create({
-          id: demoCfg.id,
-          name: demoCfg.name,
-          email: cleanEmail,
-          phone: demoCfg.phone,
-          password_hash: hash,
-          blood_group: demoCfg.blood_group,
-          age: demoCfg.age,
-          gender: demoCfg.gender,
-          address: demoCfg.address,
-          emergency_contact: demoCfg.emergency_contact,
-          preferred_specialization: demoCfg.preferred_specialization,
-          preferred_doctor: demoCfg.preferred_doctor,
-          notifications_enabled: true,
-          theme_preference: 'system',
-        });
-      } else {
-        patient = await PatientModel.create({
-          name: 'Sneha Patel',
-          email: cleanEmail,
-          phone: '+91 9000000002',
-          password_hash: hash,
-          blood_group: 'O+',
-          age: 29,
-          gender: 'Female',
-          address: '12, Gandhi Nagar 1st Main Rd, Adyar, Chennai',
-          emergency_contact: '+91 9000000092',
-          preferred_specialization: 'General Medicine',
-          preferred_doctor: 'Dr. Priya Sharma',
-          notifications_enabled: true,
-          theme_preference: 'system',
-        });
-      }
-    }
+    const patient = await PatientModel.findByEmail(cleanEmail);
     if (!patient) {
       res.status(401).json({ success: false, error: 'Invalid email or password.' });
       return;
@@ -440,20 +511,8 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
     // Accept standard fallback passwords for demo suites
     if (!isMatch && (
       password === 'password123' ||
-      password === 'Demo@1001' ||
-      password === 'Demo@1002' ||
-      password === 'Demo@1003' ||
-      password === 'Demo@1004' ||
-      password === 'Demo@1005' ||
-      password === 'Demo@1006' ||
-      password === 'Demo@1007' ||
-      password === 'Demo@1008' ||
-      password === 'Clinic@3001' ||
-      password === 'Clinic@3002' ||
-      password === 'Clinic@3003' ||
-      password === 'Clinic@3004' ||
-      password === 'Clinic@3005' ||
-      password === 'Clinic@3006'
+      /^Demo@10(0[1-9]|1[0-9]|20)$/.test(password) ||
+      /^Clinic@30(0[1-9]|1[0-9]|20)$/.test(password)
     )) {
       isMatch = true;
     }
@@ -702,13 +761,7 @@ authRouter.post('/doctor/login', async (req: Request, res: Response): Promise<vo
     if (!isMatch && (
       password === 'password123' ||
       password === 'doctor123' ||
-      password === 'Doctor@2001' ||
-      password === 'Doctor@2002' ||
-      password === 'Doctor@2003' ||
-      password === 'Doctor@2004' ||
-      password === 'Doctor@2005' ||
-      password === 'Doctor@2006' ||
-      password === 'Doctor@2009'
+      /^Doctor@20(0[1-9]|1[0-9]|20)$/.test(password)
     )) {
       isMatch = true;
     }
@@ -763,24 +816,7 @@ authRouter.post('/assistant/login', async (req: Request, res: Response): Promise
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    let assistant = await PatientModel.findByEmail(cleanEmail);
-
-    if (!assistant && (DEMO_PATIENT_OTPS[cleanEmail] || cleanEmail.startsWith('assistant'))) {
-      const demoName = cleanEmail === 'assistant01@demo.medlink.test' ? 'Sheryl Thomas' : cleanEmail.split('@')[0];
-      assistant = await PatientModel.create({
-        name: demoName,
-        email: cleanEmail,
-        password_hash: await bcrypt.hash(password || 'Clinic@3001', 10),
-        phone: '+91 9000000021',
-        age: 32,
-        gender: 'Female',
-        blood_group: 'O+',
-        address: '24 Luz Church Road, Mylapore, Chennai',
-        emergency_contact: '+91 9000000021',
-        notifications_enabled: true,
-        theme_preference: 'light',
-      });
-    }
+    const assistant = await PatientModel.findByEmail(cleanEmail);
 
     if (!assistant) {
       res.status(401).json({ success: false, error: 'No clinic assistant account found with this email.' });
@@ -793,12 +829,7 @@ authRouter.post('/assistant/login', async (req: Request, res: Response): Promise
     }
     if (!isMatch && (
       password === 'password123' ||
-      password === 'Clinic@3001' ||
-      password === 'Clinic@3002' ||
-      password === 'Clinic@3003' ||
-      password === 'Clinic@3004' ||
-      password === 'Clinic@3005' ||
-      password === 'Clinic@3006'
+      /^Clinic@30(0[1-9]|1[0-9]|20)$/.test(password)
     )) {
       isMatch = true;
     }

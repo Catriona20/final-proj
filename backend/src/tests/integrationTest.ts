@@ -586,8 +586,9 @@ const runTests = async () => {
     // SCENARIO 1: Full Root Canal Lifecycle & Persistence Across Restart Simulation
     const dentalSearch = await axios.get(`${API_BASE}/doctors/search?procedure=Root%20Canal`);
     const dentist = dentalSearch.data.doctors[0];
+    await axios.post(`${API_BASE}/simulation/demo-clock`, { simulatedIsoString: '2026-08-19T03:30:00.000Z' });
     const clockAfterReset = await axios.get(`${API_BASE}/simulation/demo-clock`);
-    const testSlotDate = clockAfterReset.data.currentDateString || '2026-09-09';
+    const testSlotDate = clockAfterReset.data.currentDateString || '2026-08-19';
     const dentalSlots = await axios.get(`${API_BASE}/doctors/${dentist.id}/slots?date=${testSlotDate}`);
     const allSlots = [
       ...(dentalSlots.data.slots?.morning || []),

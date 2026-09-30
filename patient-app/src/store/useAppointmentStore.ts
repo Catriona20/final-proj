@@ -157,6 +157,13 @@ export const useAppointmentStore = create<AppointmentStoreState>((set, get) => (
       // Earlier slot suggestions are populated dynamically via backend Socket.IO events
       const loadedSuggestion: EarlierSlotSuggestion | null = null;
 
+      // Connect WebSocket for real-time synchronization
+      if (authUser?.id) {
+        socketService.connect(authUser.id);
+      } else {
+        socketService.connect();
+      }
+
       set({
         appointments: loadedAppointments,
         clinics: loadedClinics,
@@ -167,38 +174,114 @@ export const useAppointmentStore = create<AppointmentStoreState>((set, get) => (
       });
 
       // 2. Setup Real-time WebSocket Listeners
+      const handleStatusOrUpdate = async (data: any) => {
+        console.log('📡 Real-time appointment update received via WebSocket:', data);
+        const targetId = data?.appointmentId || data?.id;
+        if (!targetId) return;
+
+        const isCompleted = ['Completed', 'COMPLETED'].includes(data.status) || ['Completed', 'COMPLETED'].includes(data.appointmentStatus);
+
+        set((state) => ({
+          appointments: state.appointments.map((apt) => {
+            if (apt.id === targetId) {
+              return {
+                ...apt,
+                status: isCompleted ? 'Completed' : (data.status || apt.status),
+                patientsAhead: isCompleted ? 0 : (data.patientsAhead !== undefined ? data.patientsAhead : apt.patientsAhead),
+                queuePosition: isCompleted ? 0 : (data.queuePosition !== undefined ? data.queuePosition : apt.queuePosition),
+                estimatedWait: isCompleted ? 'Completed' : (data.estimatedWait || apt.estimatedWait),
+                prescriptionAvailable: data.prescriptionAvailable !== undefined ? data.prescriptionAvailable : (isCompleted ? true : apt.prescriptionAvailable),
+                prescription: data.prescription || apt.prescription,
+              };
+            }
+            return apt;
+          }),
+        }));
+
+        const currentAuth = useAuthStore.getState().user;
+        const targetPatientId = currentAuth?.id || data?.patientId;
+        if (targetPatientId) {
+          try {
+            const freshAppts = await appointmentService.getAppointments(targetPatientId);
+            if (Array.isArray(freshAppts) && freshAppts.length > 0) {
+              set({ appointments: freshAppts });
+              await AsyncStorage.setItem(getPatientAppointmentsKey(), JSON.stringify(freshAppts));
+            }
+          } catch (e) {
+            console.warn('Background refresh appointments error:', e);
+          }
+
+          if (isCompleted || data.prescriptionAvailable) {
+            try {
+              const records = await healthRecordsService.fetchRecords(targetPatientId);
+              set({ healthRecords: records });
+            } catch (e) {
+              console.warn('Background refresh records error:', e);
+            }
+          }
+        }
+      };
+
+      socketService.subscribe('appointment:status', handleStatusOrUpdate);
+      socketService.subscribe('appointment:updated', handleStatusOrUpdate);
+      socketService.subscribe('consultation:completed', handleStatusOrUpdate);
+      socketService.subscribe('queue:completed', handleStatusOrUpdate);
+
       socketService.subscribe('queue:updated', async (data: any) => {
         console.log('📡 Live queue update received via WebSocket:', data);
-        const currentAuth = useAuthStore.getState().user;
-        if (currentAuth?.id) {
-          const freshAppts = await appointmentService.getAppointments(currentAuth.id);
-          if (freshAppts && freshAppts.length > 0) {
-            set({ appointments: freshAppts });
-            await AsyncStorage.setItem(getPatientAppointmentsKey(), JSON.stringify(freshAppts));
-          }
+        const targetId = data?.appointmentId || data?.id;
+        if (targetId) {
+          const isCompleted = ['Completed', 'COMPLETED'].includes(data.status) || ['Completed', 'COMPLETED'].includes(data.appointmentStatus);
+          set((state) => ({
+            appointments: state.appointments.map((apt) => {
+              if (apt.id === targetId) {
+                return {
+                  ...apt,
+                  status: isCompleted ? 'Completed' : (data.status || apt.status),
+                  patientsAhead: isCompleted ? 0 : (data.patientsAhead !== undefined ? data.patientsAhead : apt.patientsAhead),
+                  queuePosition: isCompleted ? 0 : (data.queuePosition !== undefined ? data.queuePosition : apt.queuePosition),
+                  estimatedWait: isCompleted ? 'Completed' : (data.estimatedWait || apt.estimatedWait),
+                  prescriptionAvailable: data.prescriptionAvailable !== undefined ? data.prescriptionAvailable : apt.prescriptionAvailable,
+                  prescription: data.prescription || apt.prescription,
+                };
+              }
+              return apt;
+            }),
+          }));
         }
-      });
 
-      socketService.subscribe('appointment:status', async (data: any) => {
-        console.log('📡 Appointment status change received via WebSocket:', data);
         const currentAuth = useAuthStore.getState().user;
-        if (currentAuth?.id) {
-          const freshAppts = await appointmentService.getAppointments(currentAuth.id);
-          if (freshAppts && freshAppts.length > 0) {
-            set({ appointments: freshAppts });
-            await AsyncStorage.setItem(getPatientAppointmentsKey(), JSON.stringify(freshAppts));
-          }
-        }
-
-        // Refresh records if completed with prescription
-        if (['Completed', 'COMPLETED'].includes(data.status) || data.prescriptionAvailable) {
-          const records = await healthRecordsService.fetchRecords(currentAuth?.id);
-          set({ healthRecords: records });
+        const targetPatientId = currentAuth?.id || data?.patientId;
+        if (targetPatientId) {
+          try {
+            const freshAppts = await appointmentService.getAppointments(targetPatientId);
+            if (Array.isArray(freshAppts) && freshAppts.length > 0) {
+              set({ appointments: freshAppts });
+              await AsyncStorage.setItem(getPatientAppointmentsKey(), JSON.stringify(freshAppts));
+            }
+          } catch {}
         }
       });
 
       socketService.subscribe('consultation:started', async (data: any) => {
         console.log('📡 Consultation started received via WebSocket:', data);
+        const targetId = data?.appointmentId || data?.id;
+        if (targetId) {
+          set((state) => ({
+            appointments: state.appointments.map((apt) => {
+              if (apt.id === targetId) {
+                return {
+                  ...apt,
+                  status: 'In Consultation',
+                  patientsAhead: 0,
+                  queuePosition: 0,
+                  estimatedWait: 'In Session',
+                };
+              }
+              return apt;
+            }),
+          }));
+        }
         const currentAuth = useAuthStore.getState().user;
         if (currentAuth?.id) {
           const freshAppts = await appointmentService.getAppointments(currentAuth.id);
@@ -280,6 +363,31 @@ export const useAppointmentStore = create<AppointmentStoreState>((set, get) => (
         }
       });
 
+      socketService.subscribe('doctor:status_updated', (data: any) => {
+        const targetDoctor = data?.doctorId || data?.doctor_id;
+        const targetClinic = data?.clinicId || data?.clinic_id;
+        const newStatus = (data?.status || '').toUpperCase();
+        if (targetDoctor && newStatus) {
+          const currentDocs = get().doctors;
+          const updated = currentDocs.map((doc) => {
+            const isMatch = doc.id === targetDoctor || (doc as any).doctor_id === targetDoctor;
+            if (isMatch) {
+              const matchesClinic = !targetClinic || !doc.clinicId || doc.clinicId === targetClinic;
+              if (matchesClinic) {
+                return {
+                  ...doc,
+                  status: newStatus,
+                  liveStatus: newStatus,
+                  isAvailableToday: newStatus === 'AVAILABLE',
+                };
+              }
+            }
+            return doc;
+          });
+          set({ doctors: updated });
+        }
+      });
+
       socketService.subscribe('appointment:created', (newApt: Appointment) => {
         const authUser = useAuthStore.getState().user;
         const aptPatientId = (newApt as any).patientId || (newApt as any).patient_id;
@@ -329,6 +437,18 @@ export const useAppointmentStore = create<AppointmentStoreState>((set, get) => (
           return apt;
         });
         set({ appointments: updated });
+      });
+
+      socketService.subscribe('demo:reset', async () => {
+        console.log('📡 Demo reset received via WebSocket: clearing patient appointments');
+        set({ appointments: [], earlierSlotSuggestion: null });
+        try {
+          await AsyncStorage.removeItem(getPatientAppointmentsKey());
+          await AsyncStorage.removeItem(APPOINTMENTS_KEY);
+          await AsyncStorage.removeItem(EARLIER_SLOT_KEY);
+        } catch (e) {
+          // ignore
+        }
       });
     } catch (error) {
       console.error('Failed to initialize appointment store', error);

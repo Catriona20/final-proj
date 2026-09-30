@@ -26,9 +26,12 @@ export default function App() {
     handleSocketQueueUpdated,
     handleSocketAppointmentStatus,
     handleSocketAppointmentCreated,
+    handleSocketAppointmentCancelled,
     handleSocketAvailabilityRequestNew,
     handleSocketAvailabilityRequestApproved,
     handleSocketAvailabilityRequestRejected,
+    handleSocketStatusUpdated,
+    handleSocketDemoReset,
   } = useDoctorAppStore();
 
   useEffect(() => {
@@ -49,9 +52,13 @@ export default function App() {
         onQueueUpdated: handleSocketQueueUpdated,
         onAppointmentStatus: handleSocketAppointmentStatus,
         onAppointmentCreated: handleSocketAppointmentCreated,
+        onAppointmentCancelled: handleSocketAppointmentCancelled,
         onAvailabilityRequestNew: handleSocketAvailabilityRequestNew,
         onAvailabilityRequestApproved: handleSocketAvailabilityRequestApproved,
         onAvailabilityRequestRejected: handleSocketAvailabilityRequestRejected,
+        onAvailabilityRequestCleared: handleSocketDemoReset,
+        onDemoReset: handleSocketDemoReset,
+        onStatusUpdated: handleSocketStatusUpdated,
       });
 
       return () => {

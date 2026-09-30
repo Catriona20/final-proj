@@ -66,9 +66,12 @@ interface DoctorAppState {
   handleSocketQueueUpdated: (data: any) => void;
   handleSocketAppointmentStatus: (data: any) => void;
   handleSocketAppointmentCreated: (appointment: Appointment) => void;
+  handleSocketAppointmentCancelled: (data: any) => void;
   handleSocketAvailabilityRequestNew: (data: any) => void;
   handleSocketAvailabilityRequestApproved: (data: any) => void;
   handleSocketAvailabilityRequestRejected: (data: any) => void;
+  handleSocketStatusUpdated: (data: any) => void;
+  handleSocketDemoReset: () => void;
 }
 
 const computeNextAppointmentTime = (
@@ -431,6 +434,10 @@ export const useDoctorAppStore = create<DoctorAppState>((set, get) => ({
     try {
       set({ isLoading: true });
       await consultationApi.createConsultation(payload);
+      const cur = get().currentPatient;
+      if (cur && (cur.id === payload.appointmentId || (cur as any).appointment_id === payload.appointmentId)) {
+        set({ currentPatient: null });
+      }
       await get().fetchDashboardData();
       return true;
     } catch (e: any) {
@@ -451,6 +458,13 @@ export const useDoctorAppStore = create<DoctorAppState>((set, get) => ({
   },
 
   handleSocketQueueUpdated: (data: any) => {
+    const isCompleted = data && (['Completed', 'COMPLETED'].includes(data.status) || ['Completed', 'COMPLETED'].includes(data.appointmentStatus));
+    if (isCompleted && data.appointmentId) {
+      const cur = get().currentPatient;
+      if (cur && (cur.id === data.appointmentId || (cur as any).appointment_id === data.appointmentId)) {
+        set({ currentPatient: null });
+      }
+    }
     get().fetchLiveQueue();
     get().fetchTodayAppointments();
   },
@@ -458,6 +472,15 @@ export const useDoctorAppStore = create<DoctorAppState>((set, get) => ({
   handleSocketAppointmentStatus: (data: any) => {
     const { appointmentId, status, appointmentStatus } = data;
     const effectiveStatus = status || (appointmentStatus === 'CANCELLED' ? 'Cancelled' : appointmentStatus);
+    const isCompleted = ['Completed', 'COMPLETED'].includes(effectiveStatus);
+
+    if (isCompleted) {
+      const cur = get().currentPatient;
+      if (cur && (cur.id === appointmentId || (cur as any).appointment_id === appointmentId)) {
+        set({ currentPatient: null });
+      }
+    }
+
     const currentApts = get().appointments;
     const updatedApts = currentApts.map((a) => (a.id === appointmentId ? { ...a, status: effectiveStatus } : a));
     set({ appointments: updatedApts });
@@ -479,11 +502,98 @@ export const useDoctorAppStore = create<DoctorAppState>((set, get) => ({
     }
   },
 
+  handleSocketAppointmentCancelled: (data: any) => {
+    const { appointmentId, doctorId, clinicId } = data || {};
+    if (!appointmentId) return;
+
+    const { doctor } = useDoctorAuthStore.getState();
+    const { activeClinicId, liveQueue, appointments, nextPatient } = get();
+
+    // Multi-clinic and doctor isolation check
+    if (activeClinicId && clinicId && activeClinicId !== clinicId) {
+      return;
+    }
+    if (doctor?.id && doctorId && doctor.id !== doctorId) {
+      return;
+    }
+
+    // 1. Evict cancelled appointment from liveQueue immediately
+    const updatedQueue = liveQueue.filter(
+      (q) => (q as any).appointmentId !== appointmentId && q.id !== appointmentId
+    );
+
+    // 2. Recalculate queue positions, patients ahead, and estimated wait for remaining patients
+    const avgConsultDuration = 20;
+    const reindexedQueue = updatedQueue.map((q, idx) => {
+      const patientsAhead = Math.max(0, idx);
+      const estMinutes = patientsAhead * avgConsultDuration;
+      return {
+        ...q,
+        queuePosition: idx + 1,
+        queue_number: idx + 1,
+        patientsAhead,
+        patients_ahead: patientsAhead,
+        estimatedWait: estMinutes === 0 ? 'Next' : `~${estMinutes}m`,
+        estimated_wait: estMinutes === 0 ? 'Next' : `~${estMinutes}m`,
+      };
+    });
+
+    // 3. Promote next patient if the cancelled patient was next
+    let newNextPatient = nextPatient;
+    if (nextPatient && ((nextPatient as any).appointmentId === appointmentId || nextPatient.id === appointmentId)) {
+      newNextPatient = reindexedQueue.find(
+        (q) => (q.status as string) === 'WAITING' || q.status === 'Checked In' || q.status === 'Waiting'
+      ) || null;
+    }
+
+    // 4. Update appointment status in appointments list
+    const updatedAppointments = appointments.map((a) =>
+      a.id === appointmentId
+        ? { ...a, status: 'Cancelled' as const, appointmentStatus: 'CANCELLED' }
+        : a
+    );
+
+    // 5. Recalculate waiting count
+    const waitingCount = reindexedQueue.filter(
+      (q) => (q.status as string) === 'WAITING' || q.status === 'Waiting' || q.status === 'Checked In' || (q.status as string) === 'CHECKED_IN'
+    ).length;
+
+    // 6. Update doctorTiming next appointment time
+    const nextApt = computeNextAppointmentTime(updatedAppointments, reindexedQueue, newNextPatient);
+
+    set((state) => ({
+      liveQueue: reindexedQueue,
+      nextPatient: newNextPatient,
+      appointments: updatedAppointments,
+      waitingCount,
+      doctorTiming: {
+        ...state.doctorTiming,
+        nextAppointmentTime: nextApt,
+        patientsWaiting: waitingCount,
+      },
+    }));
+
+    // Authoritative backend sync
+    get().fetchLiveQueue();
+    get().fetchTodayAppointments();
+  },
+
   fetchAvailabilityRequests: async () => {
     try {
       const doctorId = useDoctorAuthStore.getState().doctor?.id;
       const res = await doctorApi.getAvailabilityRequests(doctorId);
-      const requests = res.requests || [];
+      const rawRequests = res.requests || [];
+      const requests: AvailabilityRequest[] = rawRequests.map((r: any) => ({
+        ...r,
+        date: r.date || r.requested_date || r.requestedDate || '',
+        requested_date: r.date || r.requested_date || r.requestedDate || '',
+        clinic_id: r.clinic_id || r.clinicId,
+        clinic_name: r.clinic_name || r.clinicName,
+        doctor_id: r.doctor_id || r.doctorId,
+        doctor_name: r.doctor_name || r.doctorName,
+        start_time: r.start_time || r.startTime,
+        end_time: r.end_time || r.endTime,
+      }));
       set({ availabilityRequests: requests });
     } catch (e: any) {
       console.warn('Failed to fetch availability requests:', e.message);
@@ -519,16 +629,114 @@ export const useDoctorAppStore = create<DoctorAppState>((set, get) => ({
     }
   },
 
-  handleSocketAvailabilityRequestNew: () => {
+  handleSocketAvailabilityRequestNew: (_data?: any) => {
     get().fetchAvailabilityRequests();
   },
 
-  handleSocketAvailabilityRequestApproved: () => {
+  handleSocketAvailabilityRequestApproved: (data?: any) => {
+    const targetId = data?.id || data?.requestId || data?.request_id;
+    if (targetId) {
+      const canonicalDate = data.date || data.requested_date || data.requestedDate || '';
+      set((state) => ({
+        availabilityRequests: state.availabilityRequests.map((r) =>
+          r.id === targetId
+            ? {
+                ...r,
+                ...data,
+                id: r.id,
+                date: canonicalDate || r.date,
+                status: 'APPROVED',
+              }
+            : r
+        ),
+      }));
+    }
     get().fetchAvailabilityRequests();
     get().fetchTodayAppointments();
   },
 
-  handleSocketAvailabilityRequestRejected: () => {
+  handleSocketAvailabilityRequestRejected: (data?: any) => {
+    const targetId = data?.id || data?.requestId || data?.request_id;
+    if (targetId) {
+      set((state) => ({
+        availabilityRequests: state.availabilityRequests.map((r) =>
+          r.id === targetId
+            ? {
+                ...r,
+                ...data,
+                id: r.id,
+                status: 'REJECTED',
+              }
+            : r
+        ),
+      }));
+    }
     get().fetchAvailabilityRequests();
+  },
+
+  handleSocketDemoReset: () => {
+    set({
+      availabilityRequests: [],
+      appointments: [],
+      liveQueue: [],
+      upcomingAppointments: [],
+      currentPatient: null,
+      nextPatient: null,
+      waitingCount: 0,
+      completedCount: 0,
+      totalToday: 0,
+    });
+    get().fetchAvailabilityRequests();
+    get().fetchTodayAppointments();
+    get().fetchLiveQueue();
+  },
+
+  handleSocketStatusUpdated: (data?: any) => {
+    if (!data?.doctorId) return;
+    const authDoctor = useDoctorAuthStore.getState().doctor;
+    if (authDoctor && authDoctor.id === data.doctorId) {
+      useDoctorAuthStore.setState({
+        doctor: {
+          ...authDoctor,
+          status: data.status,
+          live_status: data.status,
+          liveStatus: data.status,
+          is_available_today: data.status === 'AVAILABLE',
+        },
+      });
+
+      const { activeClinicId, activeClinic, doctorTiming } = get();
+      if (!data.clinicId || data.clinicId === activeClinicId) {
+        let newTimingStatus: DoctorTimingStatus = 'Available';
+        if (data.status === 'BUSY') {
+          newTimingStatus = 'Busy';
+        } else if (data.status === 'IN_SESSION') {
+          newTimingStatus = 'In Session';
+        } else if (data.status === 'OFFLINE') {
+          newTimingStatus = 'Offline';
+        } else if (data.status === 'ON_BREAK') {
+          newTimingStatus = 'On Break';
+        } else if (data.status === 'RUNNING_LATE') {
+          newTimingStatus = 'Running Late';
+        } else {
+          newTimingStatus = 'Available';
+        }
+
+        set({
+          doctorTiming: {
+            ...doctorTiming,
+            status: newTimingStatus,
+          },
+          ...(activeClinic
+            ? {
+                activeClinic: {
+                  ...activeClinic,
+                  status: data.status === 'AVAILABLE' ? 'On Schedule' : data.status === 'BUSY' ? 'Busy' : 'Offline',
+                },
+              }
+            : {}),
+        });
+      }
+    }
   },
 }));

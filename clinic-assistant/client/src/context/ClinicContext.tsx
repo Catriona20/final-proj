@@ -51,7 +51,7 @@ const DEMO_CLINIC_MAP: Record<string, { clinicId: string; name: string; clinicNa
   'assistant06@demo.medlink.test': { clinicId: 'c-demo-ortho-06', name: 'Lavanya S', clinicName: 'OrthoCare Chennai', staffId: 'STAFF-OCC-06', initials: 'LS' },
   'assistant07@demo.medlink.test': { clinicId: 'c-demo-skin-07', name: 'Joseph Mathew', clinicName: 'SkinSphere Dermatology', staffId: 'STAFF-SSD-07', initials: 'JM' },
   'assistant08@demo.medlink.test': { clinicId: 'c-demo-neuro-08', name: 'Priyanka Das', clinicName: 'NeuroBridge Care Clinic', staffId: 'STAFF-NBC-08', initials: 'PD' },
-  'assistant09@demo.medlink.test': { clinicId: 'c-demo-perambur-19', name: 'Karthik V', clinicName: 'Perambur Multi-Specialty Clinic', staffId: 'STAFF-PMS-09', initials: 'KV' },
+  'assistant09@demo.medlink.test': { clinicId: 'c-demo-nova-09', name: 'Karthik V', clinicName: 'Nova ENT Care', staffId: 'STAFF-PMS-09', initials: 'KV' },
   'assistant10@demo.medlink.test': { clinicId: 'c-demo-smile-10', name: 'Divya Raj', clinicName: 'Smile & Child Pediatric Centre', staffId: 'STAFF-SCP-10', initials: 'DR' },
   'assistant11@demo.medlink.test': { clinicId: 'c-demo-ramapuram-11', name: 'Suresh Nair', clinicName: 'Ramapuram Family Medical Centre', staffId: 'STAFF-RFM-11', initials: 'SN' },
   'assistant12@demo.medlink.test': { clinicId: 'c-demo-omr-12', name: 'Meenakshi R', clinicName: 'OMR Health City Clinic', staffId: 'STAFF-OMR-12', initials: 'MR' },
@@ -121,7 +121,7 @@ interface ClinicContextType {
   markInConsultation: (queueId: string) => void;
   markCompleted: (queueId: string) => void;
   removeFromQueue: (queueId: string) => void;
-  updateDoctorStatus: (doctorId: string, status: DoctorStatus) => void;
+  updateDoctorStatus: (doctorId: string, status: DoctorStatus) => Promise<void> | void;
   addAppointment: (data: Omit<Appointment, 'id' | 'status'>) => void;
   refreshData: () => Promise<void>;
   availabilityRequests: any[];
@@ -481,7 +481,62 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         socket?.emit('join:clinic', activeClinicId);
       });
 
-      socket.on('queue:updated', () => {
+      socket.on('queue:updated', (data: any) => {
+        const aptId = data?.appointmentId;
+        if (aptId) {
+          const isCompleted = ['Completed', 'COMPLETED'].includes(data?.status) || ['Completed', 'COMPLETED'].includes(data?.appointmentStatus);
+          if (isCompleted) {
+            setQueue((prev) => prev.filter((q) => q.appointmentId !== aptId && q.id !== aptId && (q as any).queueId !== `q-${aptId}`));
+          }
+        }
+        refreshData();
+      });
+
+      socket.on('queue:completed', (data: any) => {
+        const aptId = data?.appointmentId;
+        if (aptId) {
+          setQueue((prev) => prev.filter((q) => q.appointmentId !== aptId && q.id !== aptId && (q as any).queueId !== `q-${aptId}`));
+        }
+        refreshData();
+      });
+
+      socket.on('consultation:completed', (data: any) => {
+        const aptId = data?.appointmentId;
+        if (aptId) {
+          setQueue((prev) => prev.filter((q) => q.appointmentId !== aptId && q.id !== aptId && (q as any).queueId !== `q-${aptId}`));
+          setTodayAppointments((prev) =>
+            prev.map((apt) =>
+              apt.id === aptId
+                ? { ...apt, status: 'COMPLETED' as const, appointmentStatus: 'COMPLETED' as const }
+                : apt
+            )
+          );
+        }
+        refreshData();
+      });
+
+      socket.on('appointment:status', (data: any) => {
+        const aptId = data?.appointmentId;
+        if (aptId) {
+          const isCompleted = ['Completed', 'COMPLETED'].includes(data?.status) || ['Completed', 'COMPLETED'].includes(data?.appointmentStatus);
+          if (isCompleted) {
+            setQueue((prev) => prev.filter((q) => q.appointmentId !== aptId && q.id !== aptId && (q as any).queueId !== `q-${aptId}`));
+            setTodayAppointments((prev) =>
+              prev.map((apt) =>
+                apt.id === aptId
+                  ? { ...apt, status: 'COMPLETED' as const, appointmentStatus: 'COMPLETED' as const }
+                  : apt
+              )
+            );
+            setAppointments((prev) =>
+              prev.map((apt) =>
+                apt.id === aptId
+                  ? { ...apt, status: 'COMPLETED' as const, appointmentStatus: 'COMPLETED' as const }
+                  : apt
+              )
+            );
+          }
+        }
         refreshData();
       });
 
@@ -526,10 +581,6 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       });
 
-      socket.on('appointment:status', () => {
-        refreshData();
-      });
-
       socket.on('appointment:no_show', (data: any) => {
         if (data?.appointmentId) {
           setAppointments((prev) =>
@@ -546,7 +597,25 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         refreshData();
       });
 
-      socket.on('appointment:cancelled', () => {
+      socket.on('appointment:cancelled', (data: any) => {
+        const aptId = data?.appointmentId;
+        if (aptId) {
+          setQueue((prev) => prev.filter((q) => q.appointmentId !== aptId && q.id !== aptId));
+          setTodayAppointments((prev) =>
+            prev.map((apt) =>
+              apt.id === aptId
+                ? { ...apt, status: 'CANCELLED' as const, notes: data?.cancellationReason || 'Cancelled by patient' }
+                : apt
+            )
+          );
+          setAppointments((prev) =>
+            prev.map((apt) =>
+              apt.id === aptId
+                ? { ...apt, status: 'CANCELLED' as const, notes: data?.cancellationReason || 'Cancelled by patient' }
+                : apt
+            )
+          );
+        }
         refreshData();
       });
 
@@ -562,6 +631,30 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         refreshData();
       });
 
+      socket.on('doctor:status_updated', (data: any) => {
+        const targetDoctor = data?.doctorId || data?.doctor_id;
+        const targetClinic = data?.clinicId || data?.clinic_id;
+        const newStatus = (data?.status || '').toUpperCase() as DoctorStatus;
+        if (targetDoctor && newStatus) {
+          if (targetClinic && targetClinic !== activeClinicId) {
+            return;
+          }
+          setDoctors((prev) =>
+            prev.map((d) => {
+              if (d.id === targetDoctor) {
+                return {
+                  ...d,
+                  status: newStatus,
+                  currentPatients: newStatus === 'OFFLINE' ? 0 : d.currentPatients,
+                  currentPatientName: newStatus === 'OFFLINE' ? undefined : d.currentPatientName,
+                };
+              }
+              return d;
+            })
+          );
+        }
+      });
+
       socket.on('doctor:availability_changed', () => {
         refreshData();
       });
@@ -572,12 +665,16 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       socket.on('availability_request:approved', (data: any) => {
         refreshData();
-        addToast('success', 'Doctor Availability Approved! ✅', `${data?.doctorName || 'Doctor'} confirmed availability for ${data?.date || 'requested date'}.`);
+        const displayDate = data?.date || data?.requested_date || data?.requestedDate || 'requested date';
+        const docName = data?.doctor_name || data?.doctorName || 'Doctor';
+        addToast('success', 'Doctor Availability Approved! ✅', `${docName} confirmed availability for ${displayDate}.`);
       });
 
       socket.on('availability_request:rejected', (data: any) => {
         refreshData();
-        addToast('info', 'Doctor Availability Declined ❌', `${data?.doctorName || 'Doctor'} declined availability for ${data?.date || 'requested date'}.`);
+        const displayDate = data?.date || data?.requested_date || data?.requestedDate || 'requested date';
+        const docName = data?.doctor_name || data?.doctorName || 'Doctor';
+        addToast('info', 'Doctor Availability Declined ❌', `${docName} declined availability for ${displayDate}.`);
       });
 
       socket.on('availability_request:new', () => {
@@ -589,6 +686,14 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
 
       socket.on('appointment:slot_activated', () => {
+        refreshData();
+      });
+
+      socket.on('demo:reset', () => {
+        refreshData();
+      });
+
+      socket.on('availability_request:cleared', () => {
         refreshData();
       });
 
@@ -946,7 +1051,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Update Doctor Status
-  const updateDoctorStatus = (doctorId: string, status: DoctorStatus) => {
+  const updateDoctorStatus = async (doctorId: string, status: DoctorStatus) => {
     const targetDoc = doctors.find((d) => d.id === doctorId);
     if (!targetDoc) return;
 
@@ -963,6 +1068,15 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return d;
       })
     );
+
+    try {
+      const res = await clinicApi.updateDoctorStatus(doctorId, activeClinicId, status);
+      if (!res.success) {
+        console.warn('Backend doctor status update notice:', res.error);
+      }
+    } catch (err) {
+      console.warn('Backend doctor status update failed:', err);
+    }
 
     addToast(
       'info',

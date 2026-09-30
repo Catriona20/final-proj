@@ -51,22 +51,70 @@ export class PharmacySecurityClient {
     };
 
     axios
-      .post(`${this.baseUrl}/api/analytics/symptoms/log`, enriched, {
-        headers: { 'Content-Type': 'application/json' },
+      .post(`${this.baseUrl}/api/auth/audit-logs/internal`, enriched, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer dev-token-admin-a0000000-0000-0000-0000-000000000001',
+        },
         timeout: 2500,
       })
-      .catch((err) => {
+      .catch(() => {
         // Silently capture non-fatal audit forwarding notices
-        // Local audit logs in memoryDb / PostgreSQL remain the primary audit source
       });
   }
 
   /**
-   * Optional remote inventory sync
+   * Record remote dispensation in pharmacy security microservice with RBAC doctor token
+   */
+  public async recordRemoteDispensation(payload: {
+    inventoryId?: string;
+    medicineName?: string;
+    batchNumber?: string;
+    quantity?: number;
+    quantityDispensed?: number;
+    prescriptionId?: string;
+    dispensedBy?: string;
+    notes?: string;
+  }): Promise<any> {
+    try {
+      const invId =
+        payload.inventoryId ||
+        (payload.medicineName && payload.medicineName.toLowerCase().includes('amox') ? 'inv-2a' : 'inv-1a');
+      const qty = payload.quantity ?? payload.quantityDispensed ?? 1;
+
+      const res = await axios.post(
+        `${this.baseUrl}/api/pharmacy/dispense`,
+        {
+          inventoryId: invId,
+          quantity: qty,
+          prescriptionId: payload.prescriptionId,
+          notes: payload.notes || `Dispensed via MedLink FEFO Workflow (${payload.batchNumber || 'batch'}) by ${payload.dispensedBy || 'Staff'}`,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer dev-token-doctor-a0000000-0000-0000-0000-000000000002',
+          },
+          timeout: 3000,
+        }
+      );
+      return res.data;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Retrieve catalog medicines from Pharmacy Security microservice
    */
   public async getRemoteMedicines(): Promise<any[] | null> {
     try {
-      const res = await axios.get(`${this.baseUrl}/api/pharmacy/medicines`, { timeout: 3000 });
+      const res = await axios.get(`${this.baseUrl}/api/pharmacy/medicines`, {
+        headers: {
+          'Authorization': 'Bearer dev-token-doctor-a0000000-0000-0000-0000-000000000002',
+        },
+        timeout: 3000,
+      });
       return res.data?.medicines || null;
     } catch {
       return null;

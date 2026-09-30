@@ -21,6 +21,29 @@ export interface PatientEntity {
   preferred_doctor?: string;
   notifications_enabled: boolean;
   theme_preference: string;
+  role?: string;
+  clinic_id?: string;
+  clinic_name?: string;
+  staff_id?: string;
+  initials?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AssistantEntity {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  password_hash: string;
+  clinic_id: string;
+  clinic_name: string;
+  location?: string;
+  staff_id: string;
+  initials: string;
+  role: 'CLINIC_ADMIN';
+  notifications_enabled?: boolean;
+  theme_preference?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -362,17 +385,16 @@ export const PatientModel = {
         return patient;
       }
     }
-    if (cleanEmail === 'patient01@demo.medlink.test') {
-      return memoryDb.patients.get('pat-demo-01') || null;
-    }
-    if (cleanEmail === 'patient02@demo.medlink.test') {
-      return memoryDb.patients.get('pat-demo-02') || null;
-    }
-    if (cleanEmail === 'sarah.jenkins@example.com') {
-      return memoryDb.patients.get('pat-101') || null;
-    }
-    if (cleanEmail === 'ramesh.emergency@demo.medlink.test' || cleanEmail === 'patient.ramesh@demo.medlink.test') {
-      return memoryDb.patients.get('pat-demo-ramesh-emergency') || null;
+    const direct = memoryDb.patients.get(cleanEmail);
+    if (direct) return direct;
+    if (memoryDb.assistants) {
+      const asst = memoryDb.assistants.get(cleanEmail);
+      if (asst) return asst as unknown as PatientEntity;
+      for (const a of memoryDb.assistants.values()) {
+        if (a.email && a.email.toLowerCase() === cleanEmail) {
+          return a as unknown as PatientEntity;
+        }
+      }
     }
     return null;
   },
@@ -466,6 +488,43 @@ export const PatientModel = {
   },
 };
 
+export const AssistantModel = {
+  async getAll(): Promise<AssistantEntity[]> {
+    return Array.from(memoryDb.assistants.values());
+  },
+  async findById(id: string): Promise<AssistantEntity | null> {
+    if (!id) return null;
+    return memoryDb.assistants.get(id) || null;
+  },
+  async findByEmail(email: string): Promise<AssistantEntity | null> {
+    if (!email) return null;
+    const clean = email.trim().toLowerCase();
+    for (const asst of memoryDb.assistants.values()) {
+      if (asst.email && asst.email.toLowerCase() === clean) {
+        return asst;
+      }
+    }
+    const direct = memoryDb.assistants.get(clean);
+    if (direct) return direct;
+    return null;
+  },
+  async findByClinicId(clinicId: string): Promise<AssistantEntity | null> {
+    if (!clinicId) return null;
+    const canonical = resolveCanonicalClinicId(clinicId);
+    for (const asst of memoryDb.assistants.values()) {
+      if (resolveCanonicalClinicId(asst.clinic_id) === canonical) {
+        return asst;
+      }
+    }
+    return null;
+  },
+  async create(data: AssistantEntity): Promise<AssistantEntity> {
+    memoryDb.assistants.set(data.id, data);
+    saveStateToFile();
+    return data;
+  },
+};
+
 export const SavedLocationModel = {
   async getByPatientId(patientId: string): Promise<SavedLocationEntity[]> {
     const results: SavedLocationEntity[] = [];
@@ -515,13 +574,13 @@ export const CLINIC_ALIAS_MAP: Record<string, string> = {
   'c-demo-rainbow-04': 'c-demo-smile-10',
   'c-demo-skin-05': 'c-demo-skin-07',
   'c-demo-ent-06': 'c-demo-nova-09',
-  'c-demo-pulmo-11': 'c-demo-perungudi-11',
-  'c-demo-renal-12': 'c-demo-omr-12',
-  'c-demo-digestive-13': 'c-demo-sholinganallur-13',
-  'c-demo-endowell-14': 'c-demo-tambaram-14',
-  'c-demo-uro-15': 'c-demo-chromepet-15',
-  'c-demo-physio-16': 'c-demo-ambattur-16',
-  'c-demo-mind-17': 'c-demo-royapettah-17',
+  'c-demo-pulmo-11': 'c-demo-pulmo-11',
+  'c-demo-renal-12': 'c-demo-renal-12',
+  'c-demo-digestive-13': 'c-demo-digestive-13',
+  'c-demo-endowell-14': 'c-demo-endowell-14',
+  'c-demo-uro-15': 'c-demo-uro-15',
+  'c-demo-physio-16': 'c-demo-physio-16',
+  'c-demo-mind-17': 'c-demo-mind-17',
   'clinic-001': 'c-demo-moon-01',
   'clinic-002': 'c-demo-apollo-02',
   'clinic-003': 'c-demo-greenlife-03',
@@ -530,15 +589,15 @@ export const CLINIC_ALIAS_MAP: Record<string, string> = {
   'clinic-006': 'c-demo-ortho-06',
   'clinic-007': 'c-demo-skin-07',
   'clinic-008': 'c-demo-neuro-08',
-  'clinic-009': 'c-demo-perambur-19',
+  'clinic-009': 'c-demo-nova-09',
   'clinic-010': 'c-demo-smile-10',
-  'clinic-011': 'c-demo-ramapuram-11',
-  'clinic-012': 'c-demo-omr-12',
-  'clinic-013': 'c-demo-sholinganallur-13',
-  'clinic-014': 'c-demo-tambaram-14',
-  'clinic-015': 'c-demo-chromepet-15',
-  'clinic-016': 'c-demo-pallavaram-16',
-  'clinic-017': 'c-demo-ambattur-17',
+  'clinic-011': 'c-demo-pulmo-11',
+  'clinic-012': 'c-demo-renal-12',
+  'clinic-013': 'c-demo-digestive-13',
+  'clinic-014': 'c-demo-endowell-14',
+  'clinic-015': 'c-demo-uro-15',
+  'clinic-016': 'c-demo-physio-16',
+  'clinic-017': 'c-demo-mind-17',
   'clinic-018': 'c-demo-besant-18',
   'clinic-019': 'c-demo-avadi-18',
   'clinic-020': 'c-demo-royapuram-20',
@@ -550,15 +609,15 @@ export const CLINIC_ALIAS_MAP: Record<string, string> = {
   'clinic-6': 'c-demo-ortho-06',
   'clinic-7': 'c-demo-skin-07',
   'clinic-8': 'c-demo-neuro-08',
-  'clinic-9': 'c-demo-perambur-19',
+  'clinic-9': 'c-demo-nova-09',
   'clinic-10': 'c-demo-smile-10',
-  'clinic-11': 'c-demo-ramapuram-11',
-  'clinic-12': 'c-demo-omr-12',
-  'clinic-13': 'c-demo-sholinganallur-13',
-  'clinic-14': 'c-demo-tambaram-14',
-  'clinic-15': 'c-demo-chromepet-15',
-  'clinic-16': 'c-demo-pallavaram-16',
-  'clinic-17': 'c-demo-ambattur-17',
+  'clinic-11': 'c-demo-pulmo-11',
+  'clinic-12': 'c-demo-renal-12',
+  'clinic-13': 'c-demo-digestive-13',
+  'clinic-14': 'c-demo-endowell-14',
+  'clinic-15': 'c-demo-uro-15',
+  'clinic-16': 'c-demo-physio-16',
+  'clinic-17': 'c-demo-mind-17',
   'clinic-18': 'c-demo-besant-18',
   'clinic-19': 'c-demo-avadi-18',
   'clinic-20': 'c-demo-royapuram-20',
@@ -629,10 +688,42 @@ export const DoctorModel = {
       'arun.kumar@medlink.health': 'doc-demo-arun-01',
       'dr.arun.demo@medlink.test': 'doc-demo-arun-01',
       'doctor02@demo.medlink.test': 'doc-demo-priya-02',
+      'priya.sharma@medlink.test': 'doc-demo-priya-02',
       'doctor03@demo.medlink.test': 'doc-demo-karthik-03',
+      'dr.karthik.raman@medlink.test': 'doc-demo-karthik-03',
       'doctor04@demo.medlink.test': 'doc-demo-kavitha-04',
+      'dr.kavitha.reddy@medlink.test': 'doc-demo-kavitha-04',
       'doctor05@demo.medlink.test': 'doc-demo-priya-05',
+      'dr.priya.nair@medlink.test': 'doc-demo-priya-05',
       'doctor06@demo.medlink.test': 'doc-demo-venkat-06',
+      'dr.venkat.raman@medlink.test': 'doc-demo-venkat-06',
+      'doctor07@demo.medlink.test': 'doc-demo-ramesh-10',
+      'dr.ramesh.chandran@medlink.test': 'doc-demo-ramesh-10',
+      'doctor08@demo.medlink.test': 'doc-demo-aditya-11',
+      'dr.aditya.rao@medlink.test': 'doc-demo-aditya-11',
+      'doctor09@demo.medlink.test': 'doc-demo-radha-09',
+      'dr.radha.sundaram@medlink.test': 'doc-demo-radha-09',
+      'doctor10@demo.medlink.test': 'doc-demo-arvind-12',
+      'dr.arvind.swami@medlink.test': 'doc-demo-arvind-12',
+      'doctor11@demo.medlink.test': 'doc-demo-sanjay-29',
+      'dr.sanjay.krishnan@medlink.test': 'doc-demo-sanjay-29',
+      'doctor12@demo.medlink.test': 'doc-demo-balaji-31',
+      'dr.balaji.natarajan@medlink.test': 'doc-demo-balaji-31',
+      'doctor13@demo.medlink.test': 'doc-demo-manoj-33',
+      'dr.manoj.kulkarni@medlink.test': 'doc-demo-manoj-33',
+      'doctor14@demo.medlink.test': 'doc-demo-kiran-35',
+      'dr.kiran.chawla@medlink.test': 'doc-demo-kiran-35',
+      'doctor15@demo.medlink.test': 'doc-demo-dinesh-37',
+      'dr.dinesh.karthikeyan@medlink.test': 'doc-demo-dinesh-37',
+      'doctor16@demo.medlink.test': 'doc-demo-antony-39',
+      'dr.antony.raj@medlink.test': 'doc-demo-antony-39',
+      'doctor17@demo.medlink.test': 'doc-demo-siddharth-41',
+      'dr.siddharth.sen@medlink.test': 'doc-demo-siddharth-41',
+      'doctor18@demo.medlink.test': 'doc-demo-shalini-15',
+      'dr.shalini.mukerjee@medlink.test': 'doc-demo-shalini-15',
+      'doctor19@demo.medlink.test': 'doc-demo-rajesh-14',
+      'dr.rajesh@medlink.test': 'doc-demo-rajesh-14',
+      'doctor20@demo.medlink.test': 'doc-demo-ananya-08',
       'dr.ananya@medlink.health': 'doc-demo-ananya-08',
     };
     if (demoAliasMap[clean]) {
@@ -729,7 +820,17 @@ export const DoctorModel = {
       }
     }
 
-    return Array.from(uniqueMap.values());
+    const result: DoctorEntity[] = [];
+    for (const doc of uniqueMap.values()) {
+      const clinicStatus = await DoctorClinicAssignmentModel.getStatus(doc.id, canonicalClinicId);
+      const effectiveStatus = clinicStatus || doc.status;
+      result.push({
+        ...doc,
+        status: effectiveStatus,
+        is_available_today: effectiveStatus !== 'OFFLINE',
+      });
+    }
+    return result;
   },
 
   async getByDepartment(departmentName: string): Promise<DoctorEntity[]> {
@@ -920,7 +1021,11 @@ export const AppointmentModel = {
       apt.appointmentStatus = 'IN_CONSULTATION';
       apt.consultationStartedAt = apt.consultationStartedAt || new Date().toISOString();
     } else if (norm === 'COMPLETED') {
+      apt.status = 'Completed';
       apt.appointmentStatus = 'COMPLETED';
+      apt.patients_ahead = 0;
+      apt.queue_position = 0;
+      apt.estimated_wait = 'Completed';
       apt.consultationCompletedAt = apt.consultationCompletedAt || new Date().toISOString();
       memoryDb.appointment_queue.delete(id);
     }
@@ -950,7 +1055,15 @@ export const AppointmentModel = {
       updated.slotStartTime = timeService.normalizeTimeString(updated.time);
     }
     const norm = (updated.status || updated.appointmentStatus || '').toUpperCase().replace(/[\s_-]+/g, '_');
-    if (norm === 'CANCELLED' || norm === 'NO_SHOW' || norm === 'COMPLETED') {
+    if (norm === 'CANCELLED' || norm === 'NO_SHOW') {
+      memoryDb.appointment_queue.delete(id);
+    } else if (norm === 'COMPLETED') {
+      updated.status = 'Completed';
+      updated.appointmentStatus = 'COMPLETED';
+      updated.patients_ahead = 0;
+      updated.queue_position = 0;
+      updated.estimated_wait = 'Completed';
+      updated.consultationCompletedAt = updated.consultationCompletedAt || new Date().toISOString();
       memoryDb.appointment_queue.delete(id);
     }
     memoryDb.appointments.set(id, updated);
@@ -983,7 +1096,11 @@ export const AppointmentModel = {
       if (filter?.status && filter.status !== 'ALL') {
         const target = filter.status.toUpperCase().replace(/[\s_-]+/g, '');
         const current = apt.status.toUpperCase().replace(/[\s_-]+/g, '');
-        if (target !== current) {
+        if (target === 'ACTIVE') {
+          if (['CANCELLED', 'CANCELED', 'COMPLETED', 'NOSHOW', 'NO_SHOW'].includes(current)) {
+            continue;
+          }
+        } else if (target !== current) {
           continue;
         }
       }
@@ -1124,7 +1241,15 @@ export const PrescriptionModel = {
   },
 
   async getByAppointmentId(appointmentId: string): Promise<PrescriptionEntity | null> {
-    return memoryDb.prescriptions.get(appointmentId) || null;
+    if (memoryDb.prescriptions.has(appointmentId)) {
+      return memoryDb.prescriptions.get(appointmentId)!;
+    }
+    for (const p of memoryDb.prescriptions.values()) {
+      if (p.appointment_id === appointmentId || p.id === appointmentId || p.id === `rx-${appointmentId}`) {
+        return p;
+      }
+    }
+    return null;
   },
 
   async getByPatientId(patientId: string): Promise<PrescriptionEntity[]> {
@@ -1152,14 +1277,32 @@ export const PrescriptionModel = {
     return list.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   },
 
-  async create(data: Omit<PrescriptionEntity, 'created_at'>): Promise<PrescriptionEntity> {
-    const newPrescription: PrescriptionEntity = {
+  async updateStatus(id: string, status: string): Promise<PrescriptionEntity | null> {
+    for (const p of memoryDb.prescriptions.values()) {
+      if (p.id === id || p.appointment_id === id) {
+        (p as any).status = status;
+        saveStateToFile();
+        return p;
+      }
+    }
+    return null;
+  },
+
+  async create(data: Partial<PrescriptionEntity> & { appointment_id?: string; patient_id: string; clinic_id: string; medicines: any[] }): Promise<PrescriptionEntity> {
+    const id = data.id || `rx-${Date.now()}`;
+    const rx: PrescriptionEntity = {
       ...data,
-      created_at: new Date().toISOString(),
-    };
-    memoryDb.prescriptions.set(data.appointment_id, newPrescription);
+      id,
+      appointment_id: data.appointment_id || id,
+      status: (data as any).status || 'pending',
+      created_at: (data as any).created_at || new Date().toISOString(),
+    } as PrescriptionEntity;
+    memoryDb.prescriptions.set(id, rx);
+    if (rx.appointment_id) {
+      memoryDb.prescriptions.setAlias(rx.appointment_id, id);
+    }
     saveStateToFile();
-    return newPrescription;
+    return rx;
   },
 };
 
@@ -1377,7 +1520,15 @@ export const ConsultationModel = {
   },
 
   async getByAppointmentId(appointmentId: string): Promise<ConsultationEntity | null> {
-    return memoryDb.consultations.get(appointmentId) || null;
+    if (memoryDb.consultations.has(appointmentId)) {
+      return memoryDb.consultations.get(appointmentId)!;
+    }
+    for (const c of memoryDb.consultations.values()) {
+      if (c.appointment_id === appointmentId || c.id === appointmentId || c.id === `cons-${appointmentId}`) {
+        return c;
+      }
+    }
+    return null;
   },
 
   async create(data: Omit<ConsultationEntity, 'id' | 'created_at' | 'updated_at'>): Promise<ConsultationEntity> {
@@ -1614,6 +1765,7 @@ export const WalkInModel = {
 export interface PharmacyItemEntity {
   id: string;
   clinic_id?: string;
+  sku?: string;
   name: string;
   generic_name?: string;
   category: string;
@@ -1659,25 +1811,31 @@ export function normalizeMedicineName(name: string): string {
 
 export function isMedicineMatch(
   targetName: string,
-  item: { name: string; generic_name?: string; batch_number?: string }
+  item: { name: string; generic_name?: string; batch_number?: string; sku?: string; strength?: string }
 ): boolean {
   if (!targetName || !item) return false;
   const rawTarget = targetName.toLowerCase().trim();
   const rawName = item.name.toLowerCase().trim();
   const rawGeneric = (item.generic_name || '').toLowerCase().trim();
   const rawBatch = (item.batch_number || '').toLowerCase().trim();
+  const rawSku = (item.sku || '').toLowerCase().trim();
 
-  // 1. Batch number exact/prefix match
+  // 1. SKU exact or contained match
+  if (rawSku && (rawSku === rawTarget || rawTarget.includes(rawSku) || rawSku.includes(rawTarget))) {
+    return true;
+  }
+
+  // 2. Batch number exact/prefix match
   if (rawBatch && (rawBatch === rawTarget || rawBatch.includes(rawTarget))) {
     return true;
   }
 
-  // 2. Exact match
+  // 3. Exact match
   if (rawName === rawTarget || rawGeneric === rawTarget) {
     return true;
   }
 
-  // 3. Normalized comparison
+  // 4. Normalized comparison
   const normTarget = normalizeMedicineName(targetName);
   const normName = normalizeMedicineName(item.name);
   const normGeneric = normalizeMedicineName(item.generic_name || '');
@@ -1731,8 +1889,9 @@ export const PharmacyModel = {
   async getAll(filter?: { search?: string; category?: string; clinicId?: string }): Promise<PharmacyItemEntity[]> {
     const list: PharmacyItemEntity[] = [];
     const search = filter?.search?.trim();
+    const targetClinic = filter?.clinicId ? resolveCanonicalClinicId(filter.clinicId) : undefined;
     for (const item of memoryDb.pharmacy_inventory.values()) {
-      if (filter?.clinicId && item.clinic_id !== filter.clinicId) continue;
+      if (targetClinic && resolveCanonicalClinicId(item.clinic_id || '') !== targetClinic) continue;
       if (filter?.category && filter.category !== 'All' && item.category !== filter.category) continue;
       if (search) {
         if (!isMedicineMatch(search, item)) continue;
@@ -1769,9 +1928,11 @@ export const PharmacyModel = {
     return item;
   },
 
-  async getLowStockItems(): Promise<PharmacyItemEntity[]> {
+  async getLowStockItems(clinicId?: string): Promise<PharmacyItemEntity[]> {
     const list: PharmacyItemEntity[] = [];
+    const targetClinic = clinicId ? resolveCanonicalClinicId(clinicId) : undefined;
     for (const item of memoryDb.pharmacy_inventory.values()) {
+      if (targetClinic && resolveCanonicalClinicId(item.clinic_id || '') !== targetClinic) continue;
       if (item.quantity <= item.min_stock_level) {
         list.push(item);
       }
@@ -1779,13 +1940,15 @@ export const PharmacyModel = {
     return list.sort((a, b) => a.quantity - b.quantity);
   },
 
-  async getExpiringItems(withinDays: number = 90): Promise<PharmacyItemEntity[]> {
+  async getExpiringItems(withinDays: number = 90, clinicId?: string): Promise<PharmacyItemEntity[]> {
     const now = new Date();
     const threshold = new Date(now.getTime() + withinDays * 86400000);
     const list: PharmacyItemEntity[] = [];
+    const targetClinic = clinicId ? resolveCanonicalClinicId(clinicId) : undefined;
     for (const item of memoryDb.pharmacy_inventory.values()) {
+      if (targetClinic && resolveCanonicalClinicId(item.clinic_id || '') !== targetClinic) continue;
       const exp = new Date(item.expiry_date);
-      if (exp <= threshold) {
+      if (exp <= threshold && exp > now) {
         list.push(item);
       }
     }
@@ -1804,7 +1967,7 @@ export const PharmacyModel = {
     return newDisp;
   },
 
-  async getDispensations(filter?: { medicineName?: string; patientId?: string }): Promise<PharmacyDispensationEntity[]> {
+  async getDispensations(filter?: { medicineName?: string; patientId?: string; clinicId?: string }): Promise<PharmacyDispensationEntity[]> {
     const list: PharmacyDispensationEntity[] = [];
     for (const d of memoryDb.pharmacy_dispensations.values()) {
       if (filter?.medicineName && !d.medicine_name.toLowerCase().includes(filter.medicineName.toLowerCase())) continue;
@@ -1907,9 +2070,11 @@ export interface DoctorClinicAssignmentEntity {
   clinic_id: string;
   specialty?: string;
   active: boolean;
+  status?: DoctorAvailabilityStatus;
   start_date?: string;
   end_date?: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export const DoctorClinicAssignmentModel = {
@@ -1925,15 +2090,82 @@ export const DoctorClinicAssignmentModel = {
         clinic_id: clinicId!,
         specialty,
         active: true,
+        status: 'AVAILABLE',
       };
     } else {
-      data = dataOrDocId;
+      data = {
+        status: 'AVAILABLE',
+        ...dataOrDocId,
+      };
     }
     const id = `dca-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const entity: DoctorClinicAssignmentEntity = {
       id,
       ...data,
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    memoryDb.doctor_clinic_assignments.set(id, entity);
+    saveStateToFile();
+    return entity;
+  },
+
+  async getStatus(doctorId: string, clinicId: string): Promise<DoctorAvailabilityStatus | null> {
+    const canonicalDoc = resolveCanonicalDoctorId(doctorId);
+    const canonicalClinic = resolveCanonicalClinicId(clinicId);
+    for (const a of memoryDb.doctor_clinic_assignments.values()) {
+      const matchDoc =
+        a.doctor_id === doctorId ||
+        a.doctor_id === canonicalDoc ||
+        resolveCanonicalDoctorId(a.doctor_id) === canonicalDoc;
+      const matchClinic =
+        a.clinic_id === clinicId ||
+        a.clinic_id === canonicalClinic ||
+        resolveCanonicalClinicId(a.clinic_id) === canonicalClinic;
+      if (matchDoc && matchClinic && a.active && a.status) {
+        return a.status;
+      }
+    }
+    return null;
+  },
+
+  async setStatus(
+    doctorId: string,
+    clinicId: string,
+    status: DoctorAvailabilityStatus
+  ): Promise<DoctorClinicAssignmentEntity> {
+    const canonicalDoc = resolveCanonicalDoctorId(doctorId);
+    const canonicalClinic = resolveCanonicalClinicId(clinicId);
+
+    for (const a of memoryDb.doctor_clinic_assignments.values()) {
+      const matchDoc =
+        a.doctor_id === doctorId ||
+        a.doctor_id === canonicalDoc ||
+        resolveCanonicalDoctorId(a.doctor_id) === canonicalDoc;
+      const matchClinic =
+        a.clinic_id === clinicId ||
+        a.clinic_id === canonicalClinic ||
+        resolveCanonicalClinicId(a.clinic_id) === canonicalClinic;
+      if (matchDoc && matchClinic && a.active) {
+        a.status = status;
+        a.updated_at = new Date().toISOString();
+        memoryDb.doctor_clinic_assignments.set(a.id, a);
+        saveStateToFile();
+        return a;
+      }
+    }
+
+    const doc = memoryDb.doctors.get(doctorId) || memoryDb.doctors.get(canonicalDoc);
+    const id = `dca-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const entity: DoctorClinicAssignmentEntity = {
+      id,
+      doctor_id: canonicalDoc,
+      clinic_id: canonicalClinic,
+      specialty: doc?.specialization,
+      active: true,
+      status,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
     memoryDb.doctor_clinic_assignments.set(id, entity);
     saveStateToFile();
@@ -1985,6 +2217,7 @@ export interface AvailabilityRequestEntity {
   doctor_id: string;
   doctor_name: string;
   specialty: string;
+  date: string;
   requested_date: string;
   start_time: string;
   end_time: string;
@@ -2012,9 +2245,13 @@ function parseTimeToMinsHelper(timeStr: string): number {
 export const AvailabilityRequestModel = {
   async create(data: Omit<AvailabilityRequestEntity, 'id' | 'status' | 'created_at' | 'updated_at'>): Promise<AvailabilityRequestEntity> {
     const id = `avail-req-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const rawDate = data.date || data.requested_date || (data as any).requestedDate || '';
+    const canonicalDate = timeService.normalizeDateString(rawDate);
     const entity: AvailabilityRequestEntity = {
       ...data,
       id,
+      date: canonicalDate,
+      requested_date: canonicalDate,
       status: 'PENDING',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -2025,19 +2262,29 @@ export const AvailabilityRequestModel = {
   },
 
   async getById(id: string): Promise<AvailabilityRequestEntity | null> {
-    return memoryDb.availability_requests.get(id) || null;
+    const r = memoryDb.availability_requests.get(id);
+    if (!r) return null;
+    const canonicalDate = timeService.normalizeDateString(r.date || r.requested_date);
+    r.date = canonicalDate;
+    r.requested_date = canonicalDate;
+    return r;
   },
 
   async getRequests(filter?: { doctorId?: string; clinicId?: string; status?: AvailabilityRequestStatus; date?: string }): Promise<AvailabilityRequestEntity[]> {
     const list: AvailabilityRequestEntity[] = [];
     const canonicalDoc = filter?.doctorId ? resolveCanonicalDoctorId(filter.doctorId) : undefined;
     const canonicalClinic = filter?.clinicId ? resolveCanonicalClinicId(filter.clinicId) : undefined;
+    const filterDate = filter?.date ? timeService.normalizeDateString(filter.date) : undefined;
 
     for (const r of memoryDb.availability_requests.values()) {
+      const canonicalDate = timeService.normalizeDateString(r.date || r.requested_date);
+      r.date = canonicalDate;
+      r.requested_date = canonicalDate;
+
       if (filter?.doctorId && r.doctor_id !== filter.doctorId && r.doctor_id !== canonicalDoc) continue;
       if (filter?.clinicId && r.clinic_id !== filter.clinicId && r.clinic_id !== canonicalClinic) continue;
       if (filter?.status && r.status !== filter.status) continue;
-      if (filter?.date && r.requested_date !== filter.date) continue;
+      if (filterDate && canonicalDate !== filterDate) continue;
       list.push(r);
     }
     return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -2049,45 +2296,103 @@ export const AvailabilityRequestModel = {
     r.status = status;
     if (responseNotes !== undefined) r.response_notes = responseNotes;
     r.updated_at = new Date().toISOString();
+    const canonicalDate = timeService.normalizeDateString(r.date || r.requested_date);
+    r.date = canonicalDate;
+    r.requested_date = canonicalDate;
     memoryDb.availability_requests.set(id, r);
     saveStateToFile();
     return r;
   },
 
-  async hasApprovedAvailability(doctorId: string, clinicId: string, date: string, timeStr?: string): Promise<boolean> {
+  async hasScheduleConflict(
+    doctorId: string,
+    clinicId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+    excludeRequestId?: string
+  ): Promise<{ conflict: boolean; conflictingRequest?: AvailabilityRequestEntity; reason?: string }> {
     const canonicalDoc = resolveCanonicalDoctorId(doctorId);
     const canonicalClinic = resolveCanonicalClinicId(clinicId);
-    const normDate = date.includes('T') ? date.split('T')[0] : date;
+    const normDate = timeService.normalizeDateString(date);
+    const newStart = parseTimeToMinsHelper(startTime);
+    const newEnd = parseTimeToMinsHelper(endTime);
+
+    if (newStart >= newEnd) {
+      return {
+        conflict: true,
+        reason: `Invalid shift time interval: Start time (${startTime}) must be earlier than end time (${endTime}).`,
+      };
+    }
 
     for (const r of memoryDb.availability_requests.values()) {
+      if (excludeRequestId && r.id === excludeRequestId) continue;
+      // Only consider active requests (APPROVED or PENDING). Cancelled / Rejected do not block new requests.
+      if (r.status !== 'APPROVED' && r.status !== 'PENDING') continue;
+
       const matchDoc = r.doctor_id === doctorId || r.doctor_id === canonicalDoc;
       const matchClinic = r.clinic_id === clinicId || r.clinic_id === canonicalClinic;
-      if (matchDoc && matchClinic && r.status === 'APPROVED' && r.requested_date === normDate) {
-        if (!timeStr) return true;
-        const slotMins = parseTimeToMinsHelper(timeStr);
-        const startMins = parseTimeToMinsHelper(r.start_time);
-        const endMins = parseTimeToMinsHelper(r.end_time);
-        if (slotMins >= startMins && slotMins < endMins) {
-          return true;
+      const rDate = timeService.normalizeDateString(r.date || r.requested_date);
+
+      if (matchDoc && matchClinic && rDate === normDate) {
+        const existStart = parseTimeToMinsHelper(r.start_time);
+        const existEnd = parseTimeToMinsHelper(r.end_time);
+
+        // Check interval overlap: max(start1, start2) < min(end1, end2)
+        const overlaps = Math.max(newStart, existStart) < Math.min(newEnd, existEnd);
+        if (overlaps) {
+          return {
+            conflict: true,
+            conflictingRequest: r,
+            reason: `Shift overlaps with an existing ${r.status.toLowerCase()} schedule (${r.start_time} – ${r.end_time}) on ${rDate}.`,
+          };
         }
       }
     }
-    return false;
+
+    return { conflict: false };
   },
 
-  async getApprovedForDoctorAndClinic(doctorId: string, clinicId: string, date: string): Promise<AvailabilityRequestEntity | null> {
+  async getAllApprovedForDoctorAndClinic(
+    doctorId: string,
+    clinicId: string,
+    date: string
+  ): Promise<AvailabilityRequestEntity[]> {
     const canonicalDoc = resolveCanonicalDoctorId(doctorId);
     const canonicalClinic = resolveCanonicalClinicId(clinicId);
-    const normDate = date.includes('T') ? date.split('T')[0] : date;
+    const normDate = timeService.normalizeDateString(date);
+    const results: AvailabilityRequestEntity[] = [];
 
     for (const r of memoryDb.availability_requests.values()) {
       const matchDoc = r.doctor_id === doctorId || r.doctor_id === canonicalDoc;
       const matchClinic = r.clinic_id === clinicId || r.clinic_id === canonicalClinic;
-      if (matchDoc && matchClinic && r.status === 'APPROVED' && r.requested_date === normDate) {
-        return r;
+      const rDate = timeService.normalizeDateString(r.date || r.requested_date);
+      if (matchDoc && matchClinic && r.status === 'APPROVED' && rDate === normDate) {
+        r.date = rDate;
+        r.requested_date = rDate;
+        results.push(r);
       }
     }
-    return null;
+
+    return results.sort((a, b) => parseTimeToMinsHelper(a.start_time) - parseTimeToMinsHelper(b.start_time));
+  },
+
+  async hasApprovedAvailability(doctorId: string, clinicId: string, date: string, timeStr?: string): Promise<boolean> {
+    const all = await this.getAllApprovedForDoctorAndClinic(doctorId, clinicId, date);
+    if (all.length === 0) return false;
+    if (!timeStr) return true;
+
+    const slotMins = parseTimeToMinsHelper(timeStr);
+    return all.some((r) => {
+      const startMins = parseTimeToMinsHelper(r.start_time);
+      const endMins = parseTimeToMinsHelper(r.end_time);
+      return slotMins >= startMins && slotMins < endMins;
+    });
+  },
+
+  async getApprovedForDoctorAndClinic(doctorId: string, clinicId: string, date: string): Promise<AvailabilityRequestEntity | null> {
+    const all = await this.getAllApprovedForDoctorAndClinic(doctorId, clinicId, date);
+    return all.length > 0 ? all[0] : null;
   },
 };
 

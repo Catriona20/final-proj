@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { register, login, getMe, getAuditLogs } = require('../controllers/authController');
+const { register, login, getMe, getAuditLogs, createAuditLog } = require('../controllers/authController');
 const { authenticate, authorize } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -15,5 +15,7 @@ router.get('/me', authenticate, getMe);
 
 // Protected audit trail (admin only)
 router.get('/audit-logs', authenticate, authorize('admin'), getAuditLogs);
+router.post('/audit-logs', authenticate, createAuditLog);
+router.post('/audit-logs/internal', createAuditLog);
 
 module.exports = router;

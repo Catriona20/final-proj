@@ -5,6 +5,7 @@ const WS_URL = process.env.EXPO_PUBLIC_WS_URL || 'http://localhost:5000';
 class ClientSocketService {
   private socket: Socket | null = null;
   private currentPatientId: string | null = null;
+  private joinedAppointmentIds: Set<string> = new Set();
   private listeners: Map<string, Set<(data: any) => void>> = new Map();
 
   connect(patientId?: string): void {
@@ -31,10 +32,21 @@ class ClientSocketService {
           this.currentPatientId = pid;
           this.socket?.emit('join:patient', pid);
         }
+        for (const aptId of this.joinedAppointmentIds) {
+          this.socket?.emit('join:appointment', aptId);
+        }
       });
 
       this.socket.on('queue:updated', (data: any) => {
         this.notify('queue:updated', data);
+      });
+
+      this.socket.on('queue:completed', (data: any) => {
+        this.notify('queue:completed', data);
+      });
+
+      this.socket.on('consultation:completed', (data: any) => {
+        this.notify('consultation:completed', data);
       });
 
       this.socket.on('clinic:created', (data: any) => {
@@ -53,6 +65,10 @@ class ClientSocketService {
         this.notify('appointment:status', data);
       });
 
+      this.socket.on('appointment:updated', (data: any) => {
+        this.notify('appointment:updated', data);
+      });
+
       this.socket.on('doctor:delayed', (data: any) => {
         this.notify('doctor:delayed', data);
       });
@@ -63,6 +79,10 @@ class ClientSocketService {
 
       this.socket.on('notification:new', (data: any) => {
         this.notify('notification:new', data);
+      });
+
+      this.socket.on('doctor:status_updated', (data: any) => {
+        this.notify('doctor:status_updated', data);
       });
 
       this.socket.on('doctor:availability_updated', (data: any) => {
@@ -81,6 +101,34 @@ class ClientSocketService {
         this.notify('availability_request:rejected', data);
       });
 
+      this.socket.on('appointment:slot_activated', (data: any) => {
+        this.notify('appointment:slot_activated', data);
+      });
+
+      this.socket.on('clinic:schedule_updated', (data: any) => {
+        this.notify('clinic:schedule_updated', data);
+      });
+
+      this.socket.on('appointment:created', (data: any) => {
+        this.notify('appointment:created', data);
+      });
+
+      this.socket.on('appointment:cancelled', (data: any) => {
+        this.notify('appointment:cancelled', data);
+      });
+
+      this.socket.on('appointment:rescheduled', (data: any) => {
+        this.notify('appointment:rescheduled', data);
+      });
+
+      this.socket.on('demo:reset', (data: any) => {
+        this.notify('demo:reset', data);
+      });
+
+      this.socket.on('availability_request:cleared', (data: any) => {
+        this.notify('availability_request:cleared', data);
+      });
+
       this.socket.on('disconnect', () => {
         console.log('📡 Disconnected from WebSocket Gateway');
       });
@@ -90,6 +138,8 @@ class ClientSocketService {
   }
 
   joinAppointment(appointmentId: string): void {
+    if (!appointmentId) return;
+    this.joinedAppointmentIds.add(appointmentId);
     if (this.socket && this.socket.connected) {
       this.socket.emit('join:appointment', appointmentId);
     }

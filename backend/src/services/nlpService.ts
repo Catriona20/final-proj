@@ -277,6 +277,22 @@ const ensure28DaysHistory = (
   return result.sort((a, b) => a.date.localeCompare(b.date));
 };
 
+function normalizeClinicalText(text: string): string {
+  let t = (text || '').toLowerCase().trim();
+  t = t.replace(/['’]/g, '');
+  t = t.replace(/[-_/]/g, ' ');
+  t = t.replace(/\s+/g, ' ');
+  t = t.replace(/\bgynaecolog\w*/g, 'gynecologist');
+  t = t.replace(/\bgynaec\w*/g, 'gynecology');
+  t = t.replace(/\bgynae\b/g, 'gynecology');
+  t = t.replace(/\bgyno\b/g, 'gynecology');
+  t = t.replace(/\bob\s*gyn\b|\bobgyn\b/g, 'gynecologist');
+  t = t.replace(/\bpaediatr\w*/g, 'pediatrician');
+  t = t.replace(/\borthopaed\w*/g, 'orthopedic');
+  t = t.replace(/\bphysiotherap\w*/g, 'physiotherapy');
+  return t;
+}
+
 export class NLPService {
   private get baseUrl(): string {
     const raw = config.nlpServiceUrl || 'http://127.0.0.1:8000';
@@ -428,7 +444,8 @@ export class NLPService {
       }
 
       // Keyword domain classification if still unresolved or if generic fallback occurred
-      if (!dept || dept === 'General Medicine' || confidence < 0.35) {
+      const normText = normalizeClinicalText(trimmed);
+      if (!dept || dept === 'General Medicine' || confidence < 0.85) {
         if (
           lower.includes('tooth') ||
           lower.includes('teeth') ||
@@ -443,7 +460,8 @@ export class NLPService {
           lower.includes('bad breath') ||
           lower.includes('oral pain') ||
           lower.includes('wisdom tooth') ||
-          lower.includes('dentist')
+          lower.includes('dentist') ||
+          normText.includes('dentist')
         ) {
           dept = 'Dentistry';
           specialist = 'Dentist';
@@ -455,13 +473,19 @@ export class NLPService {
         } else if (
           lower.includes('eye') ||
           lower.includes('vision') ||
+          lower.includes('seeing') ||
+          lower.includes('trouble seeing') ||
+          lower.includes('difficulty seeing') ||
           lower.includes('blurred vision') ||
           lower.includes('dry eyes') ||
           lower.includes('itchy eyes') ||
           lower.includes('red eye') ||
           lower.includes('cataract') ||
           lower.includes('glaucoma') ||
-          lower.includes('ophthalmolog')
+          lower.includes('ophthalmolog') ||
+          normText.includes('ophthalmologist') ||
+          normText.includes('eye specialist') ||
+          normText.includes('eye doctor')
         ) {
           dept = 'Ophthalmology';
           specialist = 'Ophthalmologist';
@@ -482,7 +506,9 @@ export class NLPService {
           lower.includes('slow heartbeat') ||
           lower.includes('cardio') ||
           lower.includes('ecg') ||
-          lower.includes('echo')
+          lower.includes('echo') ||
+          normText.includes('cardiologist') ||
+          normText.includes('heart specialist')
         ) {
           dept = 'Cardiology';
           specialist = 'Cardiologist';
@@ -499,7 +525,9 @@ export class NLPService {
           lower.includes('hair loss') ||
           lower.includes('pigmentation') ||
           lower.includes('mole') ||
-          lower.includes('derma')
+          lower.includes('derma') ||
+          normText.includes('dermatologist') ||
+          normText.includes('skin specialist')
         ) {
           dept = 'Dermatology';
           specialist = 'Dermatologist';
@@ -515,7 +543,10 @@ export class NLPService {
           lower.includes('vertigo') ||
           lower.includes('tinnitus') ||
           lower.includes('nasal') ||
-          lower.includes('ent')
+          /\bent\b/i.test(lower) ||
+          /\bent\b/i.test(normText) ||
+          normText.includes('ent specialist') ||
+          normText.includes('ent doctor')
         ) {
           dept = 'ENT';
           specialist = 'ENT Specialist';
@@ -526,7 +557,9 @@ export class NLPService {
           lower.includes('baby') ||
           lower.includes('infant') ||
           lower.includes('pediatric') ||
-          lower.includes('vaccination')
+          lower.includes('vaccination') ||
+          normText.includes('pediatrician') ||
+          normText.includes('child specialist')
         ) {
           dept = 'Pediatrics';
           specialist = 'Pediatrician';
@@ -539,7 +572,8 @@ export class NLPService {
           lower.includes('rehabilitation') ||
           lower.includes('sports physio') ||
           lower.includes('mobility therapy') ||
-          lower.includes('physio')
+          lower.includes('physio') ||
+          normText.includes('physiotherapist')
         ) {
           dept = 'Physiotherapy';
           specialist = 'Physiotherapist';
@@ -555,7 +589,9 @@ export class NLPService {
           lower.includes('neck pain') ||
           lower.includes('ankle') ||
           lower.includes('arthritis') ||
-          lower.includes('ortho')
+          lower.includes('ortho') ||
+          normText.includes('orthopedic') ||
+          normText.includes('bone specialist')
         ) {
           dept = 'Orthopedics';
           specialist = 'Orthopedic Surgeon';
@@ -567,11 +603,25 @@ export class NLPService {
           lower.includes('pelvic') ||
           lower.includes('pregnancy') ||
           lower.includes('pcos') ||
-          lower.includes('gynecol')
+          lower.includes('pcod') ||
+          lower.includes('gynecol') ||
+          lower.includes('gynaecol') ||
+          lower.includes('gynae') ||
+          lower.includes('gyno') ||
+          lower.includes('obstetric') ||
+          lower.includes('ob-gyn') ||
+          lower.includes('obgyn') ||
+          lower.includes('ob gyn') ||
+          lower.includes('women') ||
+          lower.includes('maternity') ||
+          normText.includes('gynecologist') ||
+          normText.includes('obstetrician') ||
+          normText.includes('womens health') ||
+          normText.includes('pregnancy specialist')
         ) {
           dept = 'Gynecology';
           specialist = 'Gynecologist';
-          confidence = 0.95;
+          confidence = 0.96;
           routingStatus = 'recommended';
         } else if (
           lower.includes('migraine') ||
@@ -582,7 +632,9 @@ export class NLPService {
           lower.includes('nerve') ||
           lower.includes('headache') ||
           lower.includes('dizziness') ||
-          lower.includes('neurolog')
+          lower.includes('neurolog') ||
+          normText.includes('neurologist') ||
+          normText.includes('nerve specialist')
         ) {
           dept = 'Neurology';
           specialist = 'Neurologist';
@@ -596,7 +648,10 @@ export class NLPService {
           lower.includes('wheezing') ||
           lower.includes('lung') ||
           lower.includes('pulmon') ||
-          lower.includes('shortness of breath')
+          lower.includes('shortness of breath') ||
+          normText.includes('pulmonologist') ||
+          normText.includes('chest specialist') ||
+          normText.includes('lung specialist')
         ) {
           dept = 'Pulmonology';
           specialist = 'Pulmonologist';
@@ -610,7 +665,9 @@ export class NLPService {
           lower.includes('burning urination') ||
           lower.includes('prostate') ||
           lower.includes('bladder') ||
-          lower.includes('urolog')
+          lower.includes('urolog') ||
+          normText.includes('urologist') ||
+          normText.includes('kidney stone specialist')
         ) {
           dept = 'Urology';
           specialist = 'Urologist';
@@ -623,7 +680,9 @@ export class NLPService {
           lower.includes('dialysis') ||
           lower.includes('creatinine') ||
           lower.includes('proteinuria') ||
-          lower.includes('nephro')
+          lower.includes('nephro') ||
+          normText.includes('nephrologist') ||
+          normText.includes('renal specialist')
         ) {
           dept = 'Nephrology';
           specialist = 'Nephrologist';
@@ -636,7 +695,9 @@ export class NLPService {
           lower.includes('hormone') ||
           lower.includes('insulin') ||
           lower.includes('endocrine') ||
-          lower.includes('metabolic')
+          lower.includes('metabolic') ||
+          normText.includes('endocrinologist') ||
+          normText.includes('diabetologist')
         ) {
           dept = 'Endocrinology';
           specialist = 'Endocrinologist';
@@ -649,7 +710,8 @@ export class NLPService {
           lower.includes('panic') ||
           lower.includes('insomnia') ||
           lower.includes('mental health') ||
-          lower.includes('psychiat')
+          lower.includes('psychiat') ||
+          normText.includes('psychiatrist')
         ) {
           dept = 'Psychiatry';
           specialist = 'Psychiatrist';
@@ -667,7 +729,9 @@ export class NLPService {
           lower.includes('diarrhea') ||
           lower.includes('constipation') ||
           lower.includes('abdominal') ||
-          lower.includes('gastro')
+          lower.includes('gastro') ||
+          normText.includes('gastroenterologist') ||
+          normText.includes('digestive specialist')
         ) {
           dept = 'Gastroenterology';
           specialist = 'Gastroenterologist';
@@ -679,17 +743,23 @@ export class NLPService {
           lower.includes('flu') ||
           lower.includes('fatigue') ||
           lower.includes('weakness') ||
-          lower.includes('viral')
+          lower.includes('viral') ||
+          lower.includes('cancer') ||
+          lower.includes('oncolog') ||
+          lower.includes('tumor') ||
+          lower.includes('chemotherapy') ||
+          normText.includes('general physician') ||
+          normText.includes('family doctor')
         ) {
           dept = 'General Medicine';
           specialist = 'General Physician';
           confidence = 0.95;
           routingStatus = 'recommended';
-        } else {
-          dept = dept || 'General Medicine';
-          specialist = specialist || 'General Physician';
-          confidence = confidence || 0.85;
         }
+      } else {
+        dept = dept || 'General Medicine';
+        specialist = specialist || 'General Physician';
+        confidence = confidence || 0.85;
       }
 
       const emergencyKeywords = [
